@@ -1,0 +1,19 @@
+#DROP TABLE IF EXISTS `gmsg`;
+CREATE TABLE `gmsg` (
+  `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
+  `mid` varchar(50) NOT NULL,
+  `gid` varchar(50) DEFAULT NULL,
+  `buid` varchar(100) DEFAULT NULL,
+  `bname` varchar(500) DEFAULT NULL,
+  `content` varchar(10000) DEFAULT NULL,
+  `cttype` varchar(10) NOT NULL DEFAULT '0',
+  `fid` varchar(100) DEFAULT NULL,
+  `fpath` varchar(500) DEFAULT NULL,
+  `hasd` tinyint(4) NOT NULL DEFAULT '0',
+  `del` tinyint(4) NOT NULL DEFAULT '0',
+  `mdate` char(8) DEFAULT NULL,
+  `mtime` timestamp NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+  `ftime` timestamp NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `gmsg_mid` (`mid`)
+) ENGINE=InnoDB;
