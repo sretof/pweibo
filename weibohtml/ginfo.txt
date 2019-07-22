@@ -1,0 +1,57 @@
+https://weibo.com/1795005665/myfollow?gid=3909747545351455
+
+json£º<script>FM.view({"ns":"pl.relation.myFollow.index","domid":"Pl_Official_RelationMyfollow__95"
+
+groupname£ºfirst : span.W_f14.S_txt1->text
+
+usercard£º->>>div.member_box->ul.member_ul.clearfix->li.member_li.S_bg1->>>div.title.W_fb W_autocut->a [title]=? [usercard]="id=?"
+
+nextpage£º->>>div.W_pages->a.page.next https://weibo.com/+[href]
+
+
+	//WBFUID ÅÅ³ýµÄUID
+	WBFUID = ",1678870364,"
+	//WBFURL ÅÅ³ýµÄURL
+	WBFURL = ",http://tui.weibo.com/,"
+
+tl:
+https://weibo.com/mygroups?gid=3653960185837784
+json£º<script>FM.view({"ns":"pl.content.homefeed.index","domid":"v6_pl_content_homefeed",
+
+div.WB_feed WB_feed_v3.WB_feed_v4->div [tbinfo]="ouid=?"(ouid=5705221157&rouid=2752396553) [mid]=?
+
+-->div.WB_detail
+
+uname:
+  ->div.WB_info->a[0].text
+
+purl£º
+ ->div.WB_from.S_txt2 a:first-child [href]
+
+time:
+  ->div.WB_from.S_txt2->a:first-child [title]
+
+ctdiv:
+  ->div.WB_text.W_f14
+
+text1(not span):
+  text
+  ->a[render="ext"].text
+  ->img.W_img_face [title]
+
+text2(span):
+  ->a.WB_text_opt https://+[href]
+
+artile:
+  
+==https://photo.weibo.com/5876442350/wbphotos/large/mid/4390041083972442/pid/006pGX6ely1g4mubs5mppj30dv0bi74l==
+pics:
+
+pic:
+  ->div.WB_media_wrap clearfix->div.media_box->ul.WB_media_a->li.WB_pic [action-data] 
+
+video:
+
+link:
+
+fwd:

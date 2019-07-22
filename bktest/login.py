@@ -401,7 +401,7 @@ class PWeiBo():
             PWeiBo.GLOGGER.debug('fgroupmsghis success gid:{},mid:{},len(ct):{}'.format(gid, mid, ctcnt))
             self.fgroupmsghis(gid, hismid, maxmids)
 
-    def fgroupct(self, gid, maxmids=[], maxy=3):
+    def fgroupct(self, gid, maxmid=0, maxy=3):
         gcturl = 'https://weibo.com/mygroups?gid={}'.format(gid)
         text = self.gethtml(gcturl)
         p = r'<script>FM\.view\({"ns":"pl\.content\.homefeed\.index",(.*?)\)</script>'
@@ -438,14 +438,14 @@ class PWeiBo():
                 curl = 'https://weibo.com' + curl
             ctime = curltimed.get('title', '')
 
-            # 0 txt;131 l txt;132 a;14 link;211 pic;212 pics;31 video;41() fwd
+            # 0 txt;131 l txt;132 a;14 link;211 pics;21 video;41() fwd
             mtype = 0
             files = []
-            txtdiv = detail.select_one('div.WB_text.W_f14')
 
+            # txt div
+            txtdiv = feed.select_one('div.WB_detail > div.WB_text.W_f14')
             adoms = txtdiv.select('a')
             idoms = txtdiv.select('img')
-
             txtpre = ''
             txtsuf = ''
             for adom in adoms:
@@ -456,12 +456,12 @@ class PWeiBo():
                     furl = adom.get('href', '')
                     if not furl.startswith('http'):
                         furl = 'https:' + furl
-                    file = {'url': furl, 'hasd': 0, 'fpath': ''}
+                    file = {'url': furl, 'hasd': 0, 'fpath': '', 'mtype': mtype}
                     files.append(file)
                 elif adom.get('action-type', '') == 'feed_list_url':
                     mtype = 14
                     furl = adom.get('href', '')
-                    file = {'url': furl, 'hasd': 0, 'fpath': ''}
+                    file = {'url': furl, 'hasd': 0, 'fpath': '', 'mtype': mtype}
                     files.append(file)
                 else:
                     PWeiBo.GLOGGER.warning('???????????????' + str(adom))
@@ -471,6 +471,24 @@ class PWeiBo():
                     txtsuf = txtsuf + itit
             txt = txtdiv.text.strip()
             txt = txtpre + txt + txtsuf
+
+            # media div
+            mediadiv = feed.select_one('div.WB_detail > div.WB_media_wrap > div.media_box')
+            if mediadiv is not None:
+                picsul = mediadiv.select_one('ul.WB_media_a')
+                piclis = []
+                mtype = 21
+                if picsul is not None:
+                    piclis = picsul.select('li.WB_pic')
+                for picli in piclis:
+                    acdtxt = picli.get('action-data', '')
+                    rpic = r'pid=(\w+)|pic_id=(\w+)'
+                    rtext = re.findall(rpic, acdtxt, re.S)
+                    pid = rtext[0][0] or rtext[0][1]
+                    if pid:
+                        furl = 'https://photo.weibo.com/{}/wbphotos/large/mid/{}/pid/{}'.format(uid, mid, pid)
+                        file = {'url': furl, 'hasd': 0, 'fpath': '', 'mtype': mtype}
+                        files.append(file)
             maxt = 10
             if len(txt) < maxt:
                 maxt = len(txt)
@@ -543,92 +561,102 @@ def getmaxgpmids(gid):
 
 
 if __name__ == '__main__':
-    # getmaxgpmids('1')
+    getmaxgpmids('1')
     pweibo = login()
     pweibo.fgroupct('3653960185837784')
 
-    # text1 = 'ouid=5705221157&rouid=2752396553'
-    # text2 = 'ouid=5705221157'
-    # pti = r'ouid=(\d+)&rouid=(\d+)|ouid=(\d+)'
-    # jtext1 = re.findall(pti, text1, re.S)
-    # print(jtext1,(jtext1[0][2] or jtext1[0][0]))
-    # jtext2 = re.findall(pti, text2, re.S)
-    # print(jtext2,(jtext2[0][2] or jtext2[0][0]))
+# text1 = 'ouid=5705221157&rouid=2752396553'
+# text2 = 'ouid=5705221157'
+# pti = r'ouid=(\d+)&rouid=(\d+)|ouid=(\d+)'
+# jtext1 = re.findall(pti, text1, re.S)
+# print(jtext1,(jtext1[0][2] or jtext1[0][0]))
+# jtext2 = re.findall(pti, text2, re.S)
+# print(jtext2,(jtext2[0][2] or jtext2[0][0]))
 
-    # fcnt = 0
-    # pweibo = None
-    # proxies = {}
-    # while 1:
-    #     try:
-    #         if fcnt == 0:
-    #             pweibo = login(proxies)
-    #         fgroupmsg(pweibo)
-    #         fcnt = fcnt + 1
-    #         if fcnt > 500:
-    #             fcnt = 0
-    #     except requests.exceptions.SSLError as e:
-    #         PWeiBo.GLOGGER.exception(e)
-    #         proxies = {'http': 'http://127.0.0.1:10080', 'https': 'http://127.0.0.1:10080'}
-    #         fcnt = 0
-    #     except requests.exceptions.ProxyError as e:
-    #         PWeiBo.GLOGGER.exception(e)
-    #         proxies = {}
-    #         fcnt = 0
-    #     except Exception as e:
-    #         PWeiBo.GLOGGER.error(e)
-    #         fcnt = 0
-    #     finally:
-    #         nhour = datetime.datetime.now().hour
-    #         sleeptime = random.randint(1, 3)
-    #         if 1 <= nhour < 8:
-    #             sleeptime = random.randint(60, 1800)
-    #         PWeiBo.GLOGGER.info('======sleep hour:{} sleep:{}'.format(nhour, sleeptime))
-    #         time.sleep(sleeptime)
+# fcnt = 0
+# pweibo = None
+# proxies = {}
+# while 1:
+#     try:
+#         if fcnt == 0:
+#             pweibo = login(proxies)
+#         fgroupmsg(pweibo)
+#         fcnt = fcnt + 1
+#         if fcnt > 500:
+#             fcnt = 0
+#     except requests.exceptions.SSLError as e:
+#         PWeiBo.GLOGGER.exception(e)
+#         proxies = {'http': 'http://127.0.0.1:10080', 'https': 'http://127.0.0.1:10080'}
+#         fcnt = 0
+#     except requests.exceptions.ProxyError as e:
+#         PWeiBo.GLOGGER.exception(e)
+#         proxies = {}
+#         fcnt = 0
+#     except Exception as e:
+#         PWeiBo.GLOGGER.error(e)
+#         fcnt = 0
+#     finally:
+#         nhour = datetime.datetime.now().hour
+#         sleeptime = random.randint(1, 3)
+#         if 1 <= nhour < 8:
+#             sleeptime = random.randint(60, 1800)
+#         PWeiBo.GLOGGER.info('======sleep hour:{} sleep:{}'.format(nhour, sleeptime))
+#         time.sleep(sleeptime)
 
-    # text = "<div class=\"WB_red_bgimg\" id=\"pl_redEnvelope_showRedTPL\"><script type=\"text/javascript\">" \
-    #         "$CONFIG['bonus'] = \"4.81\"; $CONFIG['set_id'] = \"6000052111534\"; $CONFIG['bomb_id'] = \"\"</script>"
-    # # p = r'\$CONFIG[\'bonus\'](\.+)'
-    # p = r'\$CONFIG\[\'bonus\'\]\s*=\s*\"(.+?)\"'
-    # jtext = re.findall(p, text, re.S)
-    # print(type(jtext[0]))
-    # print(float(jtext[0])>0)
+# text = "<div class=\"WB_red_bgimg\" id=\"pl_redEnvelope_showRedTPL\"><script type=\"text/javascript\">" \
+#         "$CONFIG['bonus'] = \"4.81\"; $CONFIG['set_id'] = \"6000052111534\"; $CONFIG['bomb_id'] = \"\"</script>"
+# # p = r'\$CONFIG[\'bonus\'](\.+)'
+# p = r'\$CONFIG\[\'bonus\'\]\s*=\s*\"(.+?)\"'
+# jtext = re.findall(p, text, re.S)
+# print(type(jtext[0]))
+# print(float(jtext[0])>0)
 
-    # pweibo = login()
-    # html = pweibo.session.get('https://weibo.com/aj/v6/comment/big?ajwvr=6&id=4393233741827553&page=3', timeout=(30, 60))
-    # html.encoding = 'utf-8'
-    # jtext = html.text
-    # tjson = json.loads(jtext)
-    # thtml = tjson['data']['html']
-    # print(thtml)
+# pweibo = login()
+# html = pweibo.session.get('https://weibo.com/aj/v6/comment/big?ajwvr=6&id=4393233741827553&page=3', timeout=(30, 60))
+# html.encoding = 'utf-8'
+# jtext = html.text
+# tjson = json.loads(jtext)
+# thtml = tjson['data']['html']
+# print(thtml)
 
-    # html = pweibo.session.get('http://t.cn/AiWYz5nN', timeout=(30, 60))
-    # html.encoding = 'utf-8'
-    # text = html.text
-    # p = r'<script>FM\.view\({"ns":"pl\.content\.weiboDetail\.index",(.*?)\)</script>'
-    # jtext = re.findall(p, text, re.S)
-    # jtext = '{' + jtext[0]
-    # tjson = json.loads(jtext)
-    # thtml = tjson['html']
-    # soup = BeautifulSoup(thtml, 'lxml')
-    # # infodom = soup.select('div.msg_bubble_list.bubble_l[node-type="item"]')
-    # cwdom = soup.select('div.WB_cardwrap.WB_feed_type.S_bg2[tbinfo][mid]')
-    # print(cwdom)
+# html = pweibo.session.get('http://t.cn/AiWYz5nN', timeout=(30, 60))
+# html.encoding = 'utf-8'
+# text = html.text
+# p = r'<script>FM\.view\({"ns":"pl\.content\.weiboDetail\.index",(.*?)\)</script>'
+# jtext = re.findall(p, text, re.S)
+# jtext = '{' + jtext[0]
+# tjson = json.loads(jtext)
+# thtml = tjson['html']
+# soup = BeautifulSoup(thtml, 'lxml')
+# # infodom = soup.select('div.msg_bubble_list.bubble_l[node-type="item"]')
+# cwdom = soup.select('div.WB_cardwrap.WB_feed_type.S_bg2[tbinfo][mid]')
+# print(cwdom)
 
-    # thtml = '<div class="WB_text W_f14" node-type="feed_list_content">sfa<img class="W_img_face" render="ext" src="//img.t.sinajs.cn/t4/appstyle/expression/ext/normal/a1/2018new_doge02_org.png" title="[doge]" alt="[doge]" type="face">fsa</div>'
-    # soup = BeautifulSoup(thtml, 'lxml')
-    # ddom = soup.select_one('div.WB_text.W_f14')
-    # print(ddom.html)
+# thtml = '<div class="WB_text W_f14" node-type="feed_list_content">sfa<img class="W_img_face" render="ext" src="//img.t.sinajs.cn/t4/appstyle/expression/ext/normal/a1/2018new_doge02_org.png" title="[doge]" alt="[doge]" type="face">fsa</div>'
+# soup = BeautifulSoup(thtml, 'lxml')
+# ddom = soup.select_one('div.WB_text.W_f14')
+# print(ddom.html)
 
-    # thtml = '<div class="WB_text W_f14">' \
-    #         '<a suda-uatrack="key=minicard&amp;value=pagelink_minicard_click" title="网页链接" href="http://t.cn/AiljHACp" alt="http://t.cn/AiljHACp" action-type="feed_list_url" target="_blank" rel="noopener noreferrer"><i class="W_ficon ficon_cd_link">O</i>网页链接</a>' \
-    #         '<a target="_blank" render="ext" suda-uatrack="key=topic_click&amp;value=click_topic" class="a_topic" extra-data="type=topic" href="//s.weibo.com/weibo?q=%23%E5%A4%A7%E5%9C%B0%E8%AF%B4%E5%8E%9F%E6%B2%B9%23&amp;from=default">#大地说原油#</a>' \
-    #         '<a target="_blank" href="//weibo.com/1648195723/HEBqIyHbl" class="WB_text_opt" suda-uatrack="key=original_blog_unfold&amp;value=click_unfold:4396770048269147:1648195723" action-type="fl_unfold" action-data="mid=4396770048269147&amp;is_settop&amp;is_sethot&amp;is_setfanstop&amp;is_setyoudao">展开全文<i class="W_ficon ficon_arrow_down">c</i></a>' \
-    #         '<img class="W_img_face" render="ext" src="//img.t.sinajs.cn/t4/appstyle/expression/ext/normal/9f/2018new_jiayou_org.png" title="[加油]" alt="[加油]" type="face" style="visibility: visible;"></div>'
-    # soup = BeautifulSoup(thtml, 'lxml')
-    # adoms = soup.select('div.WB_text.W_f14 a')
-    # for adom in adoms:
-    #     print(adom.get('render', ''), '||', adom.get('class', ''), '||', adom.get('href', ''), '||', adom.text)
-    #
-    # idoms = soup.select('div.WB_text.W_f14 img')
-    # for idom in idoms:
-    #     print(idom.get('title', ''))
+# thtml = '<div class="WB_text W_f14">' \
+#         '<a suda-uatrack="key=minicard&amp;value=pagelink_minicard_click" title="网页链接" href="http://t.cn/AiljHACp" alt="http://t.cn/AiljHACp" action-type="feed_list_url" target="_blank" rel="noopener noreferrer"><i class="W_ficon ficon_cd_link">O</i>网页链接</a>' \
+#         '<a target="_blank" render="ext" suda-uatrack="key=topic_click&amp;value=click_topic" class="a_topic" extra-data="type=topic" href="//s.weibo.com/weibo?q=%23%E5%A4%A7%E5%9C%B0%E8%AF%B4%E5%8E%9F%E6%B2%B9%23&amp;from=default">#大地说原油#</a>' \
+#         '<a target="_blank" href="//weibo.com/1648195723/HEBqIyHbl" class="WB_text_opt" suda-uatrack="key=original_blog_unfold&amp;value=click_unfold:4396770048269147:1648195723" action-type="fl_unfold" action-data="mid=4396770048269147&amp;is_settop&amp;is_sethot&amp;is_setfanstop&amp;is_setyoudao">展开全文<i class="W_ficon ficon_arrow_down">c</i></a>' \
+#         '<img class="W_img_face" render="ext" src="//img.t.sinajs.cn/t4/appstyle/expression/ext/normal/9f/2018new_jiayou_org.png" title="[加油]" alt="[加油]" type="face" style="visibility: visible;"></div>'
+# soup = BeautifulSoup(thtml, 'lxml')
+# adoms = soup.select('div.WB_text.W_f14 a')
+# for adom in adoms:
+#     print(adom.get('render', ''), '||', adom.get('class', ''), '||', adom.get('href', ''), '||', adom.text)
+#
+# idoms = soup.select('div.WB_text.W_f14 img')
+# for idom in idoms:
+#     print(idom.get('title', ''))
+
+# text1 = 'isPrivate=0&relation=0&pic_id=006mrbaagy1g57k3lwck2j34h42zjnpo'
+# text2 = 'isPrivate=0&relation=0&pid=6fb2f7c2gy1g58qcn9av3j206o06oglo&object_ids=1042018%3A0373e17b054929f01d9b1d70fbbe3003&photo_tag_pids=&uid=1873999810&mid=4396902356908951&pic_ids=6fb2f7c2gy1g58qcn9av3j206o06oglo&pic_objects='
+#
+# pti = r'pid=(\w+)|pic_id=(\w+)'
+# jtext1 = re.findall(pti, text1, re.S)
+# jtext2 = re.findall(pti, text2, re.S)
+#
+# print(jtext1[0][0] or jtext1[0][1])
+# print(jtext2[0][0] or jtext1[0][1])
