@@ -4,6 +4,7 @@ __author__ = 'Erik YU'
 
 import calendar
 import datetime
+import time
 
 
 def ymd2date(ymd, se='N'):
@@ -36,6 +37,7 @@ def calmonthe(date=datetime.date.today(), x=0):
 def today():
     return datetime.date.today()
 
+
 def now():
     return datetime.datetime.now()
 
@@ -44,9 +46,13 @@ def preday(date=datetime.date.today(), n=1):
     return date + datetime.timedelta(n * -1)
 
 
+def gettimestamp():
+    return int(time.time() * 1000)  # 获取13位时间戳
+
+
 def test():
-    print('01===>', int('01')==1)
-    print('02===>', int(today().strftime('%Y%m%d')[6:8])==1,int(today().strftime('%Y%m%d')[6:8]))
+    print('01===>', int('01') == 1)
+    print('02===>', int(today().strftime('%Y%m%d')[6:8]) == 1, int(today().strftime('%Y%m%d')[6:8]))
     print('1===>', calmonths(), calmonthe())
     tdate = datetime.date.today()
     for i in range(0, 25):

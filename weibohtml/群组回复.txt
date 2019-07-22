@@ -1,0 +1,29 @@
+Request URL: https://api.weibo.com/webim/groupchat/send_message.json
+Request Method: POST
+Status Code: 200 OK
+Remote Address: 180.149.135.176:443
+Referrer Policy: no-referrer-when-downgrade
+Connection: keep-alive
+Content-Length: 372
+Content-Type: application/json;charset=UTF-8
+Date: Mon, 15 Jul 2019 07:06:11 GMT
+Server: nginx/1.6.1
+Accept: application/json, text/plain, */*
+Accept-Encoding: gzip, deflate, br
+Accept-Language: zh-CN,zh;q=0.9,en;q=0.8
+Cache-Control: no-cache
+Connection: keep-alive
+Content-Length: 200
+Content-Type: application/x-www-form-urlencoded
+Cookie: SINAGLOBAL=2464376182761.0435.1463452562838; lastShare=1795005665.0; un=sretof@live.cn; _s_tentry=login.sina.com.cn; UOR=,,login.sina.com.cn; Apache=4489708756581.438.1562822880190; ULV=1562822880209:241:3:1:4489708756581.438.1562822880190:1562315953372; login_sid_t=9864eea4b9ab8e191d52ef459671492f; cross_origin_proto=SSL; SSOLoginState=1562826442; wvr=6; SUBP=0033WrSXqPxfM725Ws9jqgMF55529P9D9WhRW31Gh6pJO5.P-wgqMnGj5JpX5KMhUgL.Fo2N1K-7eh-cSo-2dJLoIEqLxK-L1KeL1hnLxK-LBKML1hqLxK-LBKBLB-2LxK.L1heL12Hcentt; ALF=1594684654; SCF=ApNiOM0VmMh3CtGVyXSyCqtnTuxWDRRIYavvG8yadd5n4fTdxoXe0zD74NxFiuROoprTSjW_UBv8MCLN5FB9umk.; SUB=_2A25wL7E_DeRhGedJ4lcR8CvKzTmIHXVTXKX3rDV8PUNbmtBeLRDhkW9NUYwgEQpvWc50majGjFyU_8ctASh_lSiI; SUHB=0gHzjG9OuKE7Gc; webim_unReadCount=%7B%22time%22%3A1563174370101%2C%22dm_pub_total%22%3A0%2C%22chat_group_pc%22%3A0%2C%22allcountNum%22%3A1%2C%22msgbox%22%3A0%7D
+Host: api.weibo.com
+Origin: https://api.weibo.com
+Pragma: no-cache
+Referer: https://api.weibo.com/chat/
+User-Agent: Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3770.100 Safari/537.36
+content: ∂‡–ª¥Û¿–
+id: 4305987512698522
+media_type: 0
+annotations: {"webchat":1,"clientid":"1n9oxn15ulio8kj01zra643sr0a5wf9"}
+is_encoded: 0
+source: 209678993

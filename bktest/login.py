@@ -1,9 +1,9 @@
 import base64
-import datetime
 import json
 import logging
 import random
 import re
+import threading
 import time
 from binascii import b2a_hex
 from urllib.parse import quote
@@ -19,6 +19,8 @@ import util.caldate as cald
 import util.tulog as logger
 
 urllib3.disable_warnings()  # 取消警告
+
+from pymongo import MongoClient
 
 
 def get_timestamp():
@@ -81,6 +83,13 @@ class PWeiBo():
     sgsql = "insert into gmsg(mid,gid,bname,content,cttype,fid,fpath,hasd,fdate,ftime) values (%s,%s,%s,%s,%s,%s,%s,%s,%s,str_to_date(%s,'%%Y-%%m-%%d %%H:%%i:%%S.%%f'))"
 
     GLOGGER = logger.TuLog('pweibo', '/log', True, logging.INFO).getlog()
+
+    MGOCTCOLL = 'Contents'
+
+    ADUID = ('1678870364',)
+    ADURL = ('tui.weibo.com',)
+
+    SENLOCK = threading.Lock()
 
     # sgsql = "insert into gmsg(mid,gid,bname,content,cttype,fid,fpath,hasd,fdate) values (%s,%s,%s,%s,%s,%s,%s,%s,%s)"
 
@@ -324,6 +333,22 @@ class PWeiBo():
         # html.encoding = 'utf-8'
         # print(html.text)
 
+    def gethtml(self, url, ctype='', timeout=(30, 60)):
+        try:
+            PWeiBo.SENLOCK.acquire()
+            if ctype == 'chat':
+                self.session.headers['Referer'] = 'https://api.weibo.com/chat/'
+            if ctype == 'file':
+                timeout = (30, 300)
+            html = self.session.get(url, timeout=timeout)
+            html.encoding = 'utf-8'
+            text = html.text
+            return text
+        finally:
+            if ctype == 'chat':
+                self.session.headers.pop('Referer')
+            PWeiBo.SENLOCK.release()
+
     def fgroupmsg(self, gid, fgid, maxmids):
         PWeiBo.GLOGGER.info('==========fgroupmsg ssssss gid:{} maxmids:{}========='.format(gid, maxmids))
         gmsg_url = 'https://weibo.com/message/history?gid={}&_t={}'.format(fgid, get_timestamp())
@@ -376,6 +401,81 @@ class PWeiBo():
             PWeiBo.GLOGGER.debug('fgroupmsghis success gid:{},mid:{},len(ct):{}'.format(gid, mid, ctcnt))
             self.fgroupmsghis(gid, hismid, maxmids)
 
+    def fgroupct(self, gid, maxmids=[], maxy=3):
+        gcturl = 'https://weibo.com/mygroups?gid={}'.format(gid)
+        text = self.gethtml(gcturl)
+        p = r'<script>FM\.view\({"ns":"pl\.content\.homefeed\.index",(.*?)\)</script>'
+        jtext = re.findall(p, text, re.S)
+        jtext = '{' + jtext[0]
+        ptext = json.loads(jtext)
+        thtml = ptext['html']
+        # print(thtml)
+        soup = BeautifulSoup(thtml, 'lxml')
+        feeds = soup.select('div.WB_feed.WB_feed_v3.WB_feed_v4 > div[tbinfo]')
+        for feed in feeds:
+            mid = feed.get('mid', '')
+            tbinfo = feed.get('tbinfo', '')
+            pti = r'ouid=(\d+)&rouid=(\d+)|ouid=(\d+)'
+            jtext = re.findall(pti, tbinfo, re.S)
+            uid = ''
+            ruid = ''
+            if len(jtext) > 0:
+                uid = jtext[0][2] or jtext[0][0]
+                ruid = jtext[0][1]
+            detail = feed.select_one('div.WB_detail')
+            if detail is None or not mid or not uid or uid in PWeiBo.ADUID:
+                continue
+            unamed = detail.select_one('div.WB_info a:first-child')
+            curltimed = detail.select_one('div.WB_from.S_txt2 a:first-child')
+
+            uname = unamed.text
+            curl = curltimed.get('href', '')
+            for adurl in PWeiBo.ADURL:
+                if adurl in curl:
+                    continue
+            curl = curl.split('?', 1)[0]
+            if not curl.startswith('http'):
+                curl = 'https://weibo.com' + curl
+            ctime = curltimed.get('title', '')
+
+            # 0 txt;131 l txt;132 a;14 link;211 pic;212 pics;31 video;41() fwd
+            mtype = 0
+            files = []
+            txtdiv = detail.select_one('div.WB_text.W_f14')
+
+            adoms = txtdiv.select('a')
+            idoms = txtdiv.select('img')
+
+            txtpre = ''
+            txtsuf = ''
+            for adom in adoms:
+                if adom.get('render', '') == 'ext':
+                    txtpre = txtpre + adom.text
+                elif 'WB_text_opt' in adom.get('class', []):
+                    mtype = 13
+                    furl = adom.get('href', '')
+                    if not furl.startswith('http'):
+                        furl = 'https:' + furl
+                    file = {'url': furl, 'hasd': 0, 'fpath': ''}
+                    files.append(file)
+                elif adom.get('action-type', '') == 'feed_list_url':
+                    mtype = 14
+                    furl = adom.get('href', '')
+                    file = {'url': furl, 'hasd': 0, 'fpath': ''}
+                    files.append(file)
+                else:
+                    PWeiBo.GLOGGER.warning('???????????????' + str(adom))
+            for idom in idoms:
+                itit = idom.get('title', '')
+                if itit:
+                    txtsuf = txtsuf + itit
+            txt = txtdiv.text.strip()
+            txt = txtpre + txt + txtsuf
+            maxt = 10
+            if len(txt) < maxt:
+                maxt = len(txt)
+            print(mid, '|', uid, '|', uname, '|', curl, '|', ctime, '|', mtype, '|', files, '|', txt[0:maxt])
+
 
 def login(proxies={}):
     username = 'sretof@live.cn'  # 账号
@@ -421,33 +521,114 @@ def fgroupmsg(pweibo):
         # print(text)
 
 
+def fpagemid(pweibo, url):
+    html = pweibo.session.get('https://weibo.com/aj/v6/comment/big?ajwvr=6&id=4393233741827553&page=3', timeout=(30, 60))
+    html.encoding = 'utf-8'
+
+
+def getMongoWDb():
+    conn = MongoClient(dbc.MGOHOST, 27017)
+    wdb = conn[dbc.MGOWDB]
+    return wdb
+
+
+def getmaxgpmids(gid):
+    wdb = getMongoWDb()
+    coll = wdb[PWeiBo.MGOCTCOLL]
+    results = coll.aggregate([{'$group': {'_id': "$gid", 'maxmid': {'$max': "$mid"}}}])
+    print(gid)
+    print(type(results))
+    for r in results:
+        print(r)
+
+
 if __name__ == '__main__':
-    fcnt = 0
-    pweibo = None
-    proxies = {}
-    while 1:
-        try:
-            if fcnt == 0:
-                pweibo = login(proxies)
-            fgroupmsg(pweibo)
-            fcnt = fcnt + 1
-            if fcnt > 500:
-                fcnt = 0
-        except requests.exceptions.SSLError as e:
-            PWeiBo.GLOGGER.exception(e)
-            proxies = {'http': 'http://127.0.0.1:10080', 'https': 'http://127.0.0.1:10080'}
-            fcnt = 0
-        except requests.exceptions.ProxyError as e:
-            PWeiBo.GLOGGER.exception(e)
-            proxies = {}
-            fcnt = 0
-        except Exception as e:
-            PWeiBo.GLOGGER.error(e)
-            fcnt = 0
-        finally:
-            nhour = datetime.datetime.now().hour
-            sleeptime = random.randint(1, 3)
-            if 1 <= nhour < 8:
-                sleeptime = random.randint(60, 1800)
-            PWeiBo.GLOGGER.info('======sleep hour:{} sleep:{}'.format(nhour, sleeptime))
-            time.sleep(sleeptime)
+    # getmaxgpmids('1')
+    pweibo = login()
+    pweibo.fgroupct('3653960185837784')
+
+    # text1 = 'ouid=5705221157&rouid=2752396553'
+    # text2 = 'ouid=5705221157'
+    # pti = r'ouid=(\d+)&rouid=(\d+)|ouid=(\d+)'
+    # jtext1 = re.findall(pti, text1, re.S)
+    # print(jtext1,(jtext1[0][2] or jtext1[0][0]))
+    # jtext2 = re.findall(pti, text2, re.S)
+    # print(jtext2,(jtext2[0][2] or jtext2[0][0]))
+
+    # fcnt = 0
+    # pweibo = None
+    # proxies = {}
+    # while 1:
+    #     try:
+    #         if fcnt == 0:
+    #             pweibo = login(proxies)
+    #         fgroupmsg(pweibo)
+    #         fcnt = fcnt + 1
+    #         if fcnt > 500:
+    #             fcnt = 0
+    #     except requests.exceptions.SSLError as e:
+    #         PWeiBo.GLOGGER.exception(e)
+    #         proxies = {'http': 'http://127.0.0.1:10080', 'https': 'http://127.0.0.1:10080'}
+    #         fcnt = 0
+    #     except requests.exceptions.ProxyError as e:
+    #         PWeiBo.GLOGGER.exception(e)
+    #         proxies = {}
+    #         fcnt = 0
+    #     except Exception as e:
+    #         PWeiBo.GLOGGER.error(e)
+    #         fcnt = 0
+    #     finally:
+    #         nhour = datetime.datetime.now().hour
+    #         sleeptime = random.randint(1, 3)
+    #         if 1 <= nhour < 8:
+    #             sleeptime = random.randint(60, 1800)
+    #         PWeiBo.GLOGGER.info('======sleep hour:{} sleep:{}'.format(nhour, sleeptime))
+    #         time.sleep(sleeptime)
+
+    # text = "<div class=\"WB_red_bgimg\" id=\"pl_redEnvelope_showRedTPL\"><script type=\"text/javascript\">" \
+    #         "$CONFIG['bonus'] = \"4.81\"; $CONFIG['set_id'] = \"6000052111534\"; $CONFIG['bomb_id'] = \"\"</script>"
+    # # p = r'\$CONFIG[\'bonus\'](\.+)'
+    # p = r'\$CONFIG\[\'bonus\'\]\s*=\s*\"(.+?)\"'
+    # jtext = re.findall(p, text, re.S)
+    # print(type(jtext[0]))
+    # print(float(jtext[0])>0)
+
+    # pweibo = login()
+    # html = pweibo.session.get('https://weibo.com/aj/v6/comment/big?ajwvr=6&id=4393233741827553&page=3', timeout=(30, 60))
+    # html.encoding = 'utf-8'
+    # jtext = html.text
+    # tjson = json.loads(jtext)
+    # thtml = tjson['data']['html']
+    # print(thtml)
+
+    # html = pweibo.session.get('http://t.cn/AiWYz5nN', timeout=(30, 60))
+    # html.encoding = 'utf-8'
+    # text = html.text
+    # p = r'<script>FM\.view\({"ns":"pl\.content\.weiboDetail\.index",(.*?)\)</script>'
+    # jtext = re.findall(p, text, re.S)
+    # jtext = '{' + jtext[0]
+    # tjson = json.loads(jtext)
+    # thtml = tjson['html']
+    # soup = BeautifulSoup(thtml, 'lxml')
+    # # infodom = soup.select('div.msg_bubble_list.bubble_l[node-type="item"]')
+    # cwdom = soup.select('div.WB_cardwrap.WB_feed_type.S_bg2[tbinfo][mid]')
+    # print(cwdom)
+
+    # thtml = '<div class="WB_text W_f14" node-type="feed_list_content">sfa<img class="W_img_face" render="ext" src="//img.t.sinajs.cn/t4/appstyle/expression/ext/normal/a1/2018new_doge02_org.png" title="[doge]" alt="[doge]" type="face">fsa</div>'
+    # soup = BeautifulSoup(thtml, 'lxml')
+    # ddom = soup.select_one('div.WB_text.W_f14')
+    # print(ddom.html)
+
+    # thtml = '<div class="WB_text W_f14">' \
+    #         '<a suda-uatrack="key=minicard&amp;value=pagelink_minicard_click" title="网页链接" href="http://t.cn/AiljHACp" alt="http://t.cn/AiljHACp" action-type="feed_list_url" target="_blank" rel="noopener noreferrer"><i class="W_ficon ficon_cd_link">O</i>网页链接</a>' \
+    #         '<a target="_blank" render="ext" suda-uatrack="key=topic_click&amp;value=click_topic" class="a_topic" extra-data="type=topic" href="//s.weibo.com/weibo?q=%23%E5%A4%A7%E5%9C%B0%E8%AF%B4%E5%8E%9F%E6%B2%B9%23&amp;from=default">#大地说原油#</a>' \
+    #         '<a target="_blank" href="//weibo.com/1648195723/HEBqIyHbl" class="WB_text_opt" suda-uatrack="key=original_blog_unfold&amp;value=click_unfold:4396770048269147:1648195723" action-type="fl_unfold" action-data="mid=4396770048269147&amp;is_settop&amp;is_sethot&amp;is_setfanstop&amp;is_setyoudao">展开全文<i class="W_ficon ficon_arrow_down">c</i></a>' \
+    #         '<img class="W_img_face" render="ext" src="//img.t.sinajs.cn/t4/appstyle/expression/ext/normal/9f/2018new_jiayou_org.png" title="[加油]" alt="[加油]" type="face" style="visibility: visible;"></div>'
+    # soup = BeautifulSoup(thtml, 'lxml')
+    # adoms = soup.select('div.WB_text.W_f14 a')
+    # for adom in adoms:
+    #     print(adom.get('render', ''), '||', adom.get('class', ''), '||', adom.get('href', ''), '||', adom.text)
+    #
+    # idoms = soup.select('div.WB_text.W_f14 img')
+    # for idom in idoms:
+    #     print(idom.get('title', ''))

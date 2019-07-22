@@ -7,3 +7,10 @@ DBUNAME = "root"
 DBPWD = "879211Qa!"
 DBSCHEMA = "weibo"
 NDBSCHEMA = "weibo"
+
+
+MGOHOST = "localhost"
+MGOWDB = "weibo"
+
+
+

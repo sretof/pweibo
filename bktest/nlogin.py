@@ -22,8 +22,6 @@ import util.tulog as logger
 
 urllib3.disable_warnings()  # 取消警告
 
-from pymongo import MongoClient
-
 
 def get_timestamp():
     return int(time.time() * 1000)  # 获取13位时间戳
@@ -79,23 +77,12 @@ def savegcts(sql):
         closeMysqlConn(conn)
 
 
-def getMongoWDb():
-    conn = MongoClient(dbc.MGOHOST, 27017)
-    wdb = conn[dbc.MGOWDB]
-    return wdb
-
-
-def getmaxgpmids(gid):
-    wdb = getMongoWDb()
-    coll = wdb[PWeiBo.MGOCTCOLL]
-    result = coll.aggregate([{'$group': {'_id': "$gtype", 'num_tutorial': {'$max': "$likes"}}}])
-
-
 class PWeiBo():
     weipicdir = 'F:\weibopicn'
     ctcaches = []
     sgsql = "insert into gmsg(mid,gid,buid,bname,content,cttype,fid,fpath,hasd,mdate,ftime,mtime) " \
             "values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,str_to_date(%s,'%%Y-%%m-%%d %%H:%%i:%%S.%%f'),str_to_date(%s,'%%Y-%%m-%%d %%H:%%i:%%S.%%f'))"
+    gurllock = threading.Lock()
     savelock = threading.Lock()
     chatsource = '209678993'
     pagesource = '4037146678'
@@ -107,17 +94,8 @@ class PWeiBo():
     # 下载文件
     downfexecutor = ThreadPoolExecutor(max_workers=5)
 
-    SENLOCK = threading.Lock()
-    GLOGGER = logger.TuLog('pweibon', '/log', True, logging.WARNING).getlog()
+    GLOGGER = logger.TuLog('pweibon', '/log', True, logging.INFO).getlog()
     CHATGIDS = ('4305987512698522',)
-    TLGIDS = ('3653960185837784', '3909747545351455', '4005405388023195', '3951063348253369')
-
-    ADUID = ('1678870364',)
-    ADURL = ('tui.weibo.com',)
-
-    MYWBUID = '1795005665'
-
-    MGOCTCOLL = 'Contents'
 
     def __init__(self, username, password, proxies):
         self.username = username
@@ -133,7 +111,7 @@ class PWeiBo():
             # self.session.mount('https://', adapter)
         self.session.verify = False  # 取消证书验证
         self.uid = uuid.uuid1()
-        self.wbuid = PWeiBo.MYWBUID
+        self.wbuid = '1795005665'
 
     # 如果有maxmid,到maxmid就返回-1
     @staticmethod
@@ -180,8 +158,8 @@ class PWeiBo():
                         if subtype == '39':
                             hburl = ct
                             ct = uos[0].get('object', '') and uos[0]['object'].get('object', '') and uos[0]['object']['object'].get('display_name', '')
-                            hd, amt = PWeiBo.fgrouphb(pweibo, hburl, gid, buid, ct)
-                            ct = ct + ' | hburl:' + hburl + ' | amt:' + str(amt)
+                            hd = PWeiBo.fgrouphb(pweibo, hburl, buid, ct)
+                            ct = ct + ' | hburl:' + hburl
                         else:
                             cttype = cttype + subtype
                 elif cttype == '14':
@@ -198,53 +176,21 @@ class PWeiBo():
         return retl, hmid
 
     @staticmethod
-    def fgrouphb(pweibo, hburl, gid, buid, ct):
-        # 302 :设置属性:allow_redirects = True ,则head方式会自动解析重定向链接，requests.get()方法的allow_redirects默认为True，head方法默认为False
-        msgs = ['感谢大佬', '谢谢大佬', '谢谢']
-        success = 0
+    def fgrouphb(pweibo, hburl, buid, ct):
+        success = 1
         if '生日' in ct or '寿星' in ct:
-            pass
+            success = 0
         else:
-            if buid == '6400215263' or buid == PWeiBo.MYWBUID:
+            if buid == '6400215263':
                 pass
-            elif buid == '1413018413':
-                slt = random.randint(8, 14)
-                slt = round(slt * 0.1, 1)
-                time.sleep(slt)
             else:
-                slt = random.randint(8, 34)
-                slt = round(slt * 0.1, 1)
-                time.sleep(slt)
+                time.sleep(0.4)
             html = pweibo.session.get(hburl, timeout=(30, 60))
             html.encoding = 'utf-8'
             text = html.text
-            hbamt = 0
-            p = r'\$CONFIG\[\'bonus\'\]\s*=\s*\"(.+?)\"'
-            hbamttxt = re.findall(p, text, re.S)
-            if len(hbamttxt) > 0:
-                hbamt = float(hbamttxt[0])
-            if '已存入您的钱包' and hbamt > 0:
-                success = 1
-            # PWeiBo.GLOGGER.info('hb success:{} hbamt:{} text:{}'.format(success, hbamt, text))
-        if success:
-            midx = random.randint(0, len(msgs))
-            mt = threading.Thread(target=PWeiBo.sendgroupmsg, args=(pweibo, gid, msgs[midx], 1))
-            mt.start()
-        return success, hbamt
-
-    @staticmethod
-    def sendgroupmsg(pweibo, gid, msg, slt):
-        if slt:
-            time.sleep(slt)
-        sgmsgurl = 'https://api.weibo.com/webim/groupchat/send_message.json'
-        data = {
-            'content': msg,
-            'id': gid,
-            'media_type': 0,
-            'is_encoded': 0,
-            'source': PWeiBo.chatsource,
-        }
-        pweibo.postdata(sgmsgurl, data, 'chat')
+        # PWeiBo.GLOGGER.error('hb page text:{}'.format(text))
+        # soup = BeautifulSoup(text, 'lxml')
+        return success
 
     @staticmethod
     def fhtmlct(pweibo, cturl):
@@ -354,9 +300,9 @@ class PWeiBo():
         # html.encoding = 'utf-8'
         # print(html.text)
 
-    def gethtml(self, url, ctype='', timeout=(30, 60)):
+    def getHtml(self, url, ctype='', timeout=(30, 60)):
         try:
-            PWeiBo.SENLOCK.acquire()
+            PWeiBo.gurllock.acquire()
             if ctype == 'chat':
                 self.session.headers['Referer'] = 'https://api.weibo.com/chat/'
             if ctype == 'file':
@@ -368,28 +314,12 @@ class PWeiBo():
         finally:
             if ctype == 'chat':
                 self.session.headers.pop('Referer')
-            PWeiBo.SENLOCK.release()
-
-    def postdata(self, url, data, ctype='', timeout=(30, 60)):
-        PWeiBo.GLOGGER.info('=====================postdata S=================')
-        try:
-            PWeiBo.SENLOCK.acquire()
-            PWeiBo.GLOGGER.info('=====================postdata LOCK=================')
-            if ctype == 'chat':
-                self.session.headers['Referer'] = 'https://api.weibo.com/chat/'
-            self.session.post(url, data, timeout=timeout)
-            PWeiBo.GLOGGER.info('++++POSTDATA++++ url:{} data:{}'.format(url, data))
-        except Exception as ex:
-            PWeiBo.GLOGGER.error(ex)
-        finally:
-            if ctype == 'chat':
-                self.session.headers.pop('Referer')
-            PWeiBo.SENLOCK.release()
+            PWeiBo.gurllock.release()
 
     def fgroupmsg(self, gid, mid='0', maxmids=[]):
         chatapiurl = 'https://api.weibo.com/webim/groupchat/query_messages.json?' \
                      'convert_emoji=1&query_sender=1&count=40&id={}&max_mid={}&source=209678993&t=1562578587256'.format(gid, mid)
-        jtext = self.gethtml(chatapiurl, 'chat')
+        jtext = self.getHtml(chatapiurl, 'chat')
         PWeiBo.GLOGGER.info(
             'fgroupmsg success get html;pweibo:{};gid:{} mid:{} maxmids:{} gurl:{}'.format(str(self.uid), gid, mid, maxmids[0:2], chatapiurl))
         try:
@@ -418,16 +348,6 @@ def login(proxies={}):
     npweibo = PWeiBo(username, password, proxies)
     npweibo.login()
     return npweibo
-
-
-def fgroupct(pweibo):
-    try:
-        for gid in PWeiBo.CHATGIDS:
-            maxmids = getmaxgpmids(gid)
-            pweibo.fgroupct(gid, maxmids=maxmids)
-    except Exception as ex:
-        PWeiBo.GLOGGER.exception(ex)
-        raise ex
 
 
 def fgroupsmsg(pweibo):
@@ -490,8 +410,7 @@ if __name__ == '__main__':
             Gfcnt = 0
         finally:
             nhour = datetime.datetime.now().hour
-            sleeptime = random.randint(6, 24)
-            sleeptime = round(sleeptime * 0.1, 1)
+            sleeptime = random.randint(1, 3)
             if 2 <= nhour < 8:
                 sleeptime = random.randint(10, 1800)
             PWeiBo.GLOGGER.info('======sleep hour:{} sleep:{}'.format(nhour, sleeptime))
