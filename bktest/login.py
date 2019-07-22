@@ -82,7 +82,7 @@ class PWeiBo():
     ctcaches = []
     sgsql = "insert into gmsg(mid,gid,bname,content,cttype,fid,fpath,hasd,fdate,ftime) values (%s,%s,%s,%s,%s,%s,%s,%s,%s,str_to_date(%s,'%%Y-%%m-%%d %%H:%%i:%%S.%%f'))"
 
-    GLOGGER = logger.TuLog('pweibo', '/log', True, logging.INFO).getlog()
+    GLOGGER = logger.TuLog('pweibologin', '/../log', True, logging.INFO).getlog()
 
     MGOCTCOLL = 'Contents'
 
