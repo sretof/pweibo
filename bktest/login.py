@@ -1,12 +1,17 @@
+# -*- coding:utf-8 -*-
 import base64
 import json
 import logging
+import os
 import random
 import re
 import threading
 import time
+import uuid
 from binascii import b2a_hex
+from concurrent.futures import ThreadPoolExecutor
 from urllib.parse import quote
+from urllib.parse import unquote
 
 import pymysql
 import requests
@@ -90,6 +95,8 @@ class PWeiBo():
     ADURL = ('tui.weibo.com',)
 
     SENLOCK = threading.Lock()
+
+    downfexecutor = ThreadPoolExecutor(max_workers=5)
 
     # sgsql = "insert into gmsg(mid,gid,bname,content,cttype,fid,fpath,hasd,fdate) values (%s,%s,%s,%s,%s,%s,%s,%s,%s)"
 
@@ -242,6 +249,176 @@ class PWeiBo():
         #     'fdate': cald.today().strftime('%Y%m%d'),
         #     'ftime': cald.now().strftime('%Y-%m-%d %H:%M:%S.%f')
         # }
+
+    @staticmethod
+    def downpimg(dpweibo, imgurl, fpath):
+        try:
+            res = dpweibo.session.get(imgurl, timeout=(30, 300))
+            ftype = res.headers.get('Content-Type', '')
+            PWeiBo.GLOGGER.info('downpimg:,filetype:{} | imgurl:{}'.format(ftype, imgurl))
+            ftr = r'(\w+)/(\w+)'
+            rtext = re.findall(ftr, ftype, re.S)
+            if rtext[0][0] != 'image':
+                raise Exception('downpimg ftype is not image')
+            img = res.content
+            fuid = ''.join(str(uuid.uuid1()).split('-'))
+            fname = fuid + '.' + rtext[0][1]
+            with open(fpath + '\\' + fname, 'wb') as f:
+                f.write(img)
+        except Exception as ex:
+            fname = ''
+            PWeiBo.GLOGGER.exception(ex)
+        return fname
+
+    @staticmethod
+    def downwpage(dpweibo, src, fid, fdir, mtype='13'):
+        try:
+            html = dpweibo.session.get(src, timeout=(30, 300))
+            html.encoding = 'utf-8'
+            text = html.text
+            if mtype == '13':
+                rpg = r'<script>FM\.view\({"ns":"pl\.content\.weiboDetail\.index",(.*?)\)</script>'
+                jtext = re.findall(rpg, text, re.S)
+                jtext = '{' + jtext[0]
+                ptext = json.loads(jtext)
+                thtml = ptext['html']
+                soup = BeautifulSoup(thtml, 'lxml')
+            elif mtype == '14':
+                soup = BeautifulSoup(text, 'lxml')
+            else:
+                soup = BeautifulSoup(text, 'lxml')
+                shtml = str(soup.select_one('div.WB_editor_iframe_new'))
+                soup = BeautifulSoup(shtml, 'lxml')
+            idoms = soup.select('img')
+            fimgdir = fid + '.files'
+            filepath = fdir + '\\' + fimgdir
+            if not os.path.exists(filepath):
+                os.makedirs(filepath)
+            for idom in idoms:
+                iurl = idom.get('src', '')
+                if iurl.startswith('//'):
+                    iurl = 'https:' + iurl
+                elif iurl.startswith('http') or iurl.startswith('https'):
+                    pass
+                elif '.files\\' in iurl:
+                    iurl = ''
+                else:
+                    PWeiBo.GLOGGER.warning('???????page iurl ???iurl:{}'.format(iurl))
+                    iurl = ''
+                if iurl:
+                    fname = PWeiBo.downpimg(dpweibo, iurl, filepath)
+                    if not fname:
+                        PWeiBo.GLOGGER.warning('down page img error:purl:{},iurl:{}'.format(src, iurl))
+                    else:
+                        idom['src'] = fimgdir + '\\' + fname
+            locpath = fdir + '\\' + fid + '.html'
+            with open(locpath, 'w', encoding='utf-8') as f:
+                f.write(str(soup.html))
+        except Exception as ex:
+            locpath = ''
+            PWeiBo.GLOGGER.exception(ex)
+        return locpath
+
+    @staticmethod
+    def downtlpic(dpweibo, src, fid, fdir):
+        try:
+            html = dpweibo.session.get(src, timeout=(30, 300))
+            html.encoding = 'utf-8'
+            text = html.text
+            soup = BeautifulSoup(text, 'lxml')
+            imgd = soup.select_one('div.artwork > img')
+            imgurl = imgd['src']
+            ipreg = r'.+/(\w+)\.(\w+)'
+            rtext = re.findall(ipreg, imgurl, re.S)
+            fname = ''
+            if len(rtext) > 0 and len(rtext[0]) > 1:
+                fpf = rtext[0][0]
+                fsf = rtext[0][1]
+                if fpf != fid:
+                    fid = fid + fpf
+                fname = fid + '.' + fsf
+            if not fname:
+                raise Exception('pic fname is none;src:{},fid:{}'.format(src, fid))
+            res = dpweibo.session.get(imgurl, timeout=(30, 300))
+            locpath = fdir + '\\' + fname
+            img = res.content
+            with open(locpath, 'wb') as f:
+                f.write(img)
+        except Exception as ex:
+            locpath = ''
+            PWeiBo.GLOGGER.exception(ex)
+        return locpath
+
+    @staticmethod
+    def downtlvideo(dpweibo, src, fid, fdir):
+        try:
+            html = dpweibo.session.get(src, timeout=(30, 300))
+            html.encoding = 'utf-8'
+            text = html.text
+            soup = BeautifulSoup(text, 'lxml')
+            dvd = soup.select_one('div.weibo_player_fa > div[node-type="common_video_player"][video-sources]')
+            vurl = unquote(dvd['video-sources'])
+            vurl = vurl.replace('fluency=', '', 1)
+            ipreg = r'.+/(\w+)\.(\w+)\?'
+            rtext = re.findall(ipreg, vurl, re.S)
+            fname = ''
+            if len(rtext) > 0 and len(rtext[0]) > 1:
+                fpf = rtext[0][0]
+                fsf = rtext[0][1]
+                fname = fpf + '.' + fsf
+            if not fname:
+                raise Exception('video fname is none;src:{},fid:{}'.format(src, fid))
+            res = dpweibo.session.get(vurl, timeout=(30, 300))
+            locpath = fdir + '\\' + fname
+            img = res.content
+            with open(locpath, 'wb') as f:
+                f.write(img)
+        except Exception as ex:
+            locpath = ''
+            PWeiBo.GLOGGER.exception(ex)
+        return locpath
+
+    @staticmethod
+    def downtlmedia(dweibo, mid, pdoc=None, fdir=None, ecnt=0):
+        PWeiBo.GLOGGER.info('=========downtlmedia;mid:{},ecnt:{}'.format(mid, ecnt))
+        if ecnt > 10:
+            return
+        if pdoc is None:
+            pdoc = getgpbymid(mid)
+        if pdoc is None:
+            PWeiBo.GLOGGER.warning('=========downtlmedia pdoc is None;mid:{},ecnt:{}'.format(mid, ecnt))
+            time.sleep(3)
+            ecnt = ecnt + 1
+            return PWeiBo.downtlmedia(dweibo, mid, ecnt=ecnt)
+        medias = pdoc.get('media', [])
+        fwdmedias = pdoc.get('fwdmedia', [])
+        uid = pdoc['uid']
+        mid = pdoc['mid']
+        gid = pdoc['gid']
+        if not gid:
+            gid = 'others'
+        if fdir is None:
+            fdir = PWeiBo.weipicdir + '\\' + 'tlgid' + gid + '\\' + 'tluid' + uid
+        if not os.path.exists(fdir):
+            os.makedirs(fdir)
+        for media in medias:
+            if media['hasd']:
+                continue
+            purl = media['url']
+            fid = media['fid']
+            if media['mtype'] == '13' or media['mtype'] == '14' or media['mtype'] == '15':
+                locpath = PWeiBo.downwpage(dweibo, purl, fid, fdir, media['mtype'])
+            elif media['mtype'].endswith('21'):
+                locpath = PWeiBo.downtlpic(dweibo, purl, fid, fdir)
+            else:
+                locpath = PWeiBo.downtlvideo(dweibo, purl, fid, fdir)
+            if locpath:
+                udpgpmedia(mid, fid, locpath)
+            else:
+                time.sleep(0.4)
+                ecnt = ecnt + 1
+                PWeiBo.GLOGGER.error('downtlpic error mid:{},purl:{}'.format(mid, purl))
+                return PWeiBo.downtlmedia(dweibo, mid, pdoc, fdir, ecnt)
 
     def clearsession(self):
         self.session = requests.session()  # 登录用session
@@ -401,85 +578,137 @@ class PWeiBo():
             PWeiBo.GLOGGER.debug('fgroupmsghis success gid:{},mid:{},len(ct):{}'.format(gid, mid, ctcnt))
             self.fgroupmsghis(gid, hismid, maxmids)
 
-    def fgroupct(self, gid, maxmid=0, maxy=3):
-        gcturl = 'https://weibo.com/mygroups?gid={}'.format(gid)
-        text = self.gethtml(gcturl)
-        p = r'<script>FM\.view\({"ns":"pl\.content\.homefeed\.index",(.*?)\)</script>'
-        jtext = re.findall(p, text, re.S)
-        jtext = '{' + jtext[0]
-        ptext = json.loads(jtext)
-        thtml = ptext['html']
-        # print(thtml)
-        soup = BeautifulSoup(thtml, 'lxml')
-        feeds = soup.select('div.WB_feed.WB_feed_v3.WB_feed_v4 > div[tbinfo]')
-        for feed in feeds:
-            mid = feed.get('mid', '')
-            tbinfo = feed.get('tbinfo', '')
-            pti = r'ouid=(\d+)&rouid=(\d+)|ouid=(\d+)'
-            jtext = re.findall(pti, tbinfo, re.S)
-            uid = ''
-            ruid = ''
-            if len(jtext) > 0:
-                uid = jtext[0][2] or jtext[0][0]
-                ruid = jtext[0][1]
-            detail = feed.select_one('div.WB_detail')
-            if detail is None or not mid or not uid or uid in PWeiBo.ADUID:
-                continue
-            unamed = detail.select_one('div.WB_info a:first-child')
-            curltimed = detail.select_one('div.WB_from.S_txt2 a:first-child')
+    @staticmethod
+    def getpageinfo(paged):
+        hemid = ''
+        hpge = ''
+        sem = paged.select_one('em[node-type="feedsincemaxid"]')
+        if sem is not None:
+            semad = sem.get('action-data', '')
+            psemad = r'since_id=(\d+)'
+            rtext = re.findall(psemad, semad, re.S)
+            if len(rtext) > 0:
+                hemid = rtext[0]
+        lazyd = paged.select_one('div.WB_cardwrap.S_bg2[node-type="lazyload"]')
+        if lazyd is not None:
+            hpge = lazyd.get('action-data', '')
+        feeds = paged.select('div.WB_cardwrap[tbinfo]')
+        return hemid, hpge, feeds
 
-            uname = unamed.text
-            curl = curltimed.get('href', '')
-            for adurl in PWeiBo.ADURL:
-                if adurl in curl:
-                    continue
-            curl = curl.split('?', 1)[0]
-            if not curl.startswith('http'):
-                curl = 'https://weibo.com' + curl
-            ctime = curltimed.get('title', '')
+    @staticmethod
+    def getfeedinfo(feed):
+        mid = feed.get('mid', '')
+        tbinfo = feed.get('tbinfo', '')
+        pti = r'ouid=(\d+)&rouid=(\d+)|ouid=(\d+)'
+        jtext = re.findall(pti, tbinfo, re.S)
+        uid = ''
+        ruid = ''
+        if len(jtext) > 0:
+            uid = jtext[0][2] or jtext[0][0]
+            ruid = jtext[0][1]
+        detail = feed.select_one('div.WB_detail')
+        return mid, uid, ruid, detail
 
-            # 0 txt;131 l txt;132 a;14 link;211 pics;21 video;41() fwd
-            mtype = 0
-            files = []
+    @staticmethod
+    def getdetailinfo(feed):
+        unamed = feed.select_one('div.WB_detail > div.WB_info a:first-child')
+        curltimed = feed.select_one('div.WB_detail > div.WB_from.S_txt2 a:first-child')
+        uname = unamed.text
+        curl = curltimed.get('href', '')
+        curl = curl.split('?', 1)[0]
+        if not curl.startswith('http'):
+            curl = 'https://weibo.com' + curl
+        ctime = curltimed.get('title', '')
+        return curl, uname, ctime
 
-            # txt div
-            txtdiv = feed.select_one('div.WB_detail > div.WB_text.W_f14')
-            adoms = txtdiv.select('a')
-            idoms = txtdiv.select('img')
-            txtpre = ''
-            txtsuf = ''
-            for adom in adoms:
-                if adom.get('render', '') == 'ext':
-                    txtpre = txtpre + adom.text
-                elif 'WB_text_opt' in adom.get('class', []):
-                    mtype = 13
-                    furl = adom.get('href', '')
-                    if not furl.startswith('http'):
-                        furl = 'https:' + furl
-                    file = {'url': furl, 'hasd': 0, 'fpath': '', 'mtype': mtype}
-                    files.append(file)
-                elif adom.get('action-type', '') == 'feed_list_url':
-                    mtype = 14
-                    furl = adom.get('href', '')
-                    file = {'url': furl, 'hasd': 0, 'fpath': '', 'mtype': mtype}
-                    files.append(file)
+    @staticmethod
+    def getfwddoc(fwd):
+        fwdhsave = False
+        fmtype = '0'
+        # fcurl, ftxt, fctime, fuid, funame = ''
+        ffiles = []
+        infod = fwd.select_one('div.WB_info a:first-child')
+        if infod is None:
+            return True, 'fdel0', {'ftxt': 'del'}
+        suda = infod.get('suda-uatrack', '')
+        sreg = r'transuser_nick:(\d+)'
+        srtxt = re.findall(sreg, suda, re.S)
+        fwdmid = '' if len(srtxt) < 1 else srtxt[0]
+        if fwdmid:
+            fsdt = getgpbymid(fwdmid)
+            if fsdt is None:
+                funame = infod.get('nick-name', '')
+                fuc = infod.get('usercard', '')
+                freg = r'id=(\d+)'
+                ftxt = re.findall(freg, fuc, re.S)
+                fuid = '' if len(ftxt) < 1 else ftxt[0]
+                fctimed = fwd.select_one('div.WB_from a:first-child')
+                fcurl = 'https://weibo.com' + fctimed.get('href', '')
+                fctime = fctimed.get('title', '')
+                txtd = fwd.select_one('div.WB_text')
+                ftxt, fmtype, ffiles = PWeiBo.getdetailtxt(txtd, fmtype, ffiles)
+                mediad = fwd.select_one('div.WB_media_wrap > div.media_box')
+                fmtype, ffiles = PWeiBo.getdetailmedia(mediad, fuid, fwdmid, fmtype, ffiles)
+            else:
+                fwdhsave = True
+        return fwdhsave, fwdmid, {'mid': fwdmid, 'ctext': ftxt, 'cturl': fcurl, 'ctime': fctime, 'uid': fuid, 'uname': funame, 'mtype': fmtype,
+                                  'media': ffiles}
+
+    @staticmethod
+    def getdetailtxt(txtdiv, mtype, files):
+        adoms = txtdiv.select('a')
+        idoms = txtdiv.select('img')
+        txtsuf = ''
+        for adom in adoms:
+            fuuid = ''.join(str(uuid.uuid1()).split('-'))
+            if adom.get('render', '') == 'ext':
+                pass
+            elif 'WB_text_opt' in adom.get('class', []):
+                mtype = '13'
+                furl = adom.get('href', '')
+                if not furl.startswith('http'):
+                    furl = 'https:' + furl
+                file = {'url': furl, 'hasd': 0, 'mtype': mtype, 'fid': fuuid}
+                files.append(file)
+            elif adom.get('action-type', '') == 'feed_list_url':
+                hasd = 0
+                furl = adom.get('href', '')
+                # 超话
+                if 'huati.weibo' in furl:
+                    hasd = 1
                 else:
-                    PWeiBo.GLOGGER.warning('???????????????' + str(adom))
-            for idom in idoms:
-                itit = idom.get('title', '')
-                if itit:
-                    txtsuf = txtsuf + itit
-            txt = txtdiv.text.strip()
-            txt = txtpre + txt + txtsuf
+                    mtype = '14'
+                file = {'url': furl, 'hasd': hasd, 'mtype': mtype, 'fid': fuuid}
+                files.append(file)
+            else:
+                PWeiBo.GLOGGER.warning('adom???????????????' + str(adom))
+        for idom in idoms:
+            itit = idom.get('title', '')
+            if itit:
+                txtsuf = txtsuf + itit
+        txt = txtdiv.text.strip()
+        if txtsuf:
+            txt = txt + '//face:' + txtsuf
+        return txt, mtype, files
 
-            # media div
-            mediadiv = feed.select_one('div.WB_detail > div.WB_media_wrap > div.media_box')
-            if mediadiv is not None:
-                picsul = mediadiv.select_one('ul.WB_media_a')
-                piclis = []
-                mtype = 21
-                if picsul is not None:
-                    piclis = picsul.select('li.WB_pic')
+    @staticmethod
+    def getdetailmedia(mediadiv, uid, mid, mtype, files):
+        if mediadiv is not None:
+            fuid = ''.join(str(uuid.uuid1()).split('-'))
+            mediaul = mediadiv.select_one('ul.WB_media_a')
+            fdiv = mediadiv.select_one('div.WB_feed_spec[action-data]')
+            if fdiv is not None and fdiv['action-data'].startswith('url'):
+                furl = unquote(fdiv['action-data'][4:])
+                if not furl.startswith('http'):
+                    furl = 'https://' + furl
+                if 'ttarticle' in furl:
+                    mtype = '15'
+                file = {'url': furl, 'hasd': 1, 'mtype': mtype, 'fid': fuid}
+                files.append(file)
+            if mediaul is not None:
+                piclis = mediaul.select('li.WB_pic')
+                if len(piclis) > 0:
+                    mtype = mtype + '21'
                 for picli in piclis:
                     acdtxt = picli.get('action-data', '')
                     rpic = r'pid=(\w+)|pic_id=(\w+)'
@@ -487,12 +716,82 @@ class PWeiBo():
                     pid = rtext[0][0] or rtext[0][1]
                     if pid:
                         furl = 'https://photo.weibo.com/{}/wbphotos/large/mid/{}/pid/{}'.format(uid, mid, pid)
-                        file = {'url': furl, 'hasd': 0, 'fpath': '', 'mtype': mtype}
+                        file = {'url': furl, 'hasd': 0, 'mtype': mtype, 'fid': pid}
                         files.append(file)
-            maxt = 10
-            if len(txt) < maxt:
-                maxt = len(txt)
-            print(mid, '|', uid, '|', uname, '|', curl, '|', ctime, '|', mtype, '|', files, '|', txt[0:maxt])
+                videolis = mediaul.select('li.WB_video')
+                if len(videolis) > 0:
+                    mtype = mtype + '22'
+            if mediaul is None and fdiv is None:
+                PWeiBo.GLOGGER.warning('media_box???????????????' + str(mediadiv))
+        return mtype, files
+
+    def fgroupct(self, gid, hisp={}, maxmid=0, maxy=5):
+        gcturl = 'https://weibo.com/aj/mblog/fsearch?gid={}&_rnd={}'.format(gid, cald.gettimestamp())
+        if hisp:
+            gcturl = 'https://weibo.com/aj/mblog/fsearch?{}&end_id={}&min_id={}&gid={}&__rnd={}'.format(hisp['page'], hisp['emid'], hisp['mmid'], gid,
+                                                                                                        cald.gettimestamp())
+        print(gcturl)
+        text = self.gethtml(gcturl)
+
+        tjson = json.loads(text)
+        gpsoup = BeautifulSoup(tjson['data'], 'lxml')
+
+        hemid, hpge, feeds = PWeiBo.getpageinfo(gpsoup)
+        hmmid = ''
+        for feed in feeds:
+            mid, uid, ruid, detail = PWeiBo.getfeedinfo(feed)
+            if detail is None or not mid or not uid or uid in PWeiBo.ADUID:
+                PWeiBo.GLOGGER.warning('fgroupct maxmid continue...gid:{},mid:{},uid:{},url:{}'.format(gid, mid, uid, gcturl))
+                continue
+            if int(mid) <= maxmid:
+                PWeiBo.GLOGGER.info('fgroupct maxmid stop....gid:{},mid:{},url:{}'.format(gid, mid, gcturl))
+                hmmid = ''
+                break
+
+            curl, uname, ctime = PWeiBo.getdetailinfo(feed)
+            if not curl or not ctime:
+                PWeiBo.GLOGGER.warning('fgroupct maxmid continue...gid:{},mid:{},uid:{},curl:{},ctime:{},url:{}'.format(gid, mid, uid, curl, ctime, gcturl))
+                continue
+            for adurl in PWeiBo.ADURL:
+                if adurl in curl:
+                    continue
+
+            if cald.now().year - int(ctime[0:4]) > maxy:
+                PWeiBo.GLOGGER.info('fgroupct maxy stop....gid:{},mid:{},ctime:{},url:{}'.format(gid, mid, ctime, gcturl))
+                hmmid = ''
+                break
+
+            # 0 txt;13/a l txt;14 link;21 pics;22 video;31 fwd
+            mtype = '0'
+            files = []
+
+            # txt div
+            txtdiv = feed.select_one('div.WB_detail > div.WB_text.W_f14')
+            txt, mtype, files = PWeiBo.getdetailtxt(txtdiv, mtype, files)
+            # media div
+            mediadiv = feed.select_one('div.WB_detail > div.WB_media_wrap > div.media_box')
+            mtype, files = PWeiBo.getdetailmedia(mediadiv, uid, mid, mtype, files)
+            # fwd div
+            fwddiv = feed.select_one('div.WB_detail > div.WB_feed_expand > div.WB_expand')
+            fwdhsave = None
+            fwdmid = None
+            fwddoc = None
+            if fwddiv is not None:
+                fwdhsave, fwdmid, fwddoc = PWeiBo.getfwddoc(fwddiv)
+                mtype = mtype + '31'
+            hmmid = mid
+            try:
+                savedetail(gid, uid, uname, mid, mtype, curl, ctime, txt, files, fwdhsave, fwdmid, fwddoc)
+            except Exception as ex:
+                PWeiBo.GLOGGER.error('savedetail error:gid{},mid:{},uid:{}'.format(gid, mid, uid))
+                PWeiBo.GLOGGER.exception(ex)
+            if len(files) > 0:
+                PWeiBo.downfexecutor.submit(PWeiBo.downtlmedia, self, mid)
+        if hemid and hpge and hmmid:
+            self.fgroupct(gid, {'emid': hemid, 'mmid': hmmid, 'page': hpge}, maxmid, maxy)
+        else:
+            print('END=====================')
+            print(tjson['data'])
 
 
 def login(proxies={}):
@@ -560,10 +859,135 @@ def getmaxgpmids(gid):
         print(r)
 
 
+def getgpbymid(mid):
+    wdb = getMongoWDb()
+    coll = wdb[PWeiBo.MGOCTCOLL]
+    result = coll.find_one({'mid': mid})
+    return result
+
+
+def udpgpdetail(mid, field, val):
+    wdb = getMongoWDb()
+    coll = wdb[PWeiBo.MGOCTCOLL]
+    coll.update_one({'mid': mid}, {'$set': {field: val}})
+
+
+def udpgpmedia(mid, fid, locpath):
+    wdb = getMongoWDb()
+    coll = wdb[PWeiBo.MGOCTCOLL]
+    coll.update_one({'mid': mid, 'media.fid': fid}, {'$set': {'media.$.hasd': 1, 'media.$.locpath': locpath}})
+
+
+def udpgpfwdmedia(mid, field, val):
+    wdb = getMongoWDb()
+    coll = wdb[PWeiBo.MGOCTCOLL]
+    coll.update_one({'mid': mid}, {'$set': {field: val}})
+
+
+def savedetail(gid, uid, uname, mid, mtype, curl, ctime, txt, files, fwdhsave, fwdmid, fwddoc):
+    wdb = getMongoWDb()
+    coll = wdb[PWeiBo.MGOCTCOLL]
+    doc = {
+        'gid': gid,
+        'uid': uid,
+        'uname': uname,
+        'mid': mid,
+        'mtype': mtype,
+        'cturl': curl,
+        'ctime': ctime,
+        'cday': ctime[0:4] + ctime[5:7] + ctime[8:10],
+        'ctext': txt,
+        'media': files,
+        'fwdhsave': fwdhsave,
+        'fwdmid': fwdmid,
+        'fwdtext': '',
+        'fwdmedia': [],
+        'fwddoc': fwddoc,
+        'fday': cald.getdaystr(),
+        'ftime': cald.now()
+    }
+    if fwdhsave is None:
+        del doc['fwdhsave']
+        del doc['fwdmid']
+        del doc['fwddoc']
+        del doc['fwdtext']
+        del doc['fwdmedia']
+    else:
+        doc['fwdtext'] = fwddoc['ctext']
+        fmedia = fwddoc['media']
+        if len(fmedia) > 0:
+            doc['fwdmedia'] = fmedia
+        else:
+            del doc['fwdmedia']
+        del fwddoc['ctext']
+        del fwddoc['media']
+    coll.insert_one(doc)
+
+
 if __name__ == '__main__':
-    getmaxgpmids('1')
+    # getgpbymid('4169669105280413')
+    # rmtxt = ['2']
+    # fmid = 'x' if len(rmtxt) < 1 else rmtxt[0]
+    # print(fmid)
+    # rmtxt = []
+    # fmid = 'x' if len(rmtxt) < 1 else rmtxt[0]
+    # print(fmid)
+    # ctime = '2018-02-10'
+    # cday = ctime[0:4] + ctime[5:7] + ctime[8:]
+    # print(cday)
+    #
+    # print(cald.getdaystr())
+    # getmaxgpmids('1')
     pweibo = login()
     pweibo.fgroupct('3653960185837784')
+    # PWeiBo.downtlmedia(pweibo, '4397507414797738')
+
+    # url = 'dfe42234ly1g5anuzw6avg20dc0dche1.files\\7a8dfbd8ade411e99e5264006a93aa65.gif'
+    # print('.files\\' in url)
+
+    # vurl = 'http://f.us.sinaimg.cn/002YVPYAlx07vupKL9ks01041200aD3B0E010.mp4?label=mp4_hd&template=480x480.23.0&trans_finger=53d43933e6520536fed61835e8c1d811&Expires=1563945763&ssig=oNJhcpmOAt&KID=unistore,video'
+    # ipreg = r'.+/(\w+)\.(\w+)\?'
+    # rtext = re.findall(ipreg, vurl, re.S)
+    # print(rtext)
+
+    # dstr = '<div class="WB_text W_f14" node-type="feed_list_content">视大盘涨跌而定<img class="W_img_face" render="ext" src="//img.t.sinajs.cn/t4/appstyle/expression/ext/normal/8f/2018new_haha_org.png" title="[哈哈]" alt="[哈哈]" type="face" style="visibility: visible;">//<a target="_blank" render="ext" extra-data="type=atname" href="//weibo.com/n/%E9%81%93%E5%A3%AB%E4%B8%8E%E9%AA%91%E5%A3%AB?from=feed&amp;loc=at" usercard="name=道士与骑士">@道士与骑士</a>:乱。。。乱马？//<a target="_blank" render="ext" extra-data="type=atname" href="//weibo.com/n/Peter%E7%BE%8A?from=feed&amp;loc=at" usercard="name=Peter羊">@Peter羊</a>: 双兔傍地走…<img class="W_img_face" render="ext" src="//img.t.sinajs.cn/t4/appstyle/expression/ext/normal/62/2018new_tanshou_org.png" title="[摊手]" alt="[摊手]" type="face" style="visibility: visible;">//<a target="_blank" render="ext" extra-data="type=atname" href="//weibo.com/n/%E9%81%93%E5%A3%AB%E4%B8%8E%E9%AA%91%E5%A3%AB?from=feed&amp;loc=at" usercard="name=道士与骑士">@道士与骑士</a>:<img class="W_img_face" render="ext" src="//img.t.sinajs.cn/t4/appstyle/expression/ext/normal/8f/2018new_haha_org.png" title="[哈哈]" alt="[哈哈]" type="face" style="visibility: visible;">//<a target="_blank" render="ext" extra-data="type=atname" href="//weibo.com/n/%E9%A3%9E%E5%A5%94%E7%9A%84%E8%80%81%E9%9F%AD%E8%8F%9C?from=feed&amp;loc=at" usercard="name=飞奔的老韭菜">@飞奔的老韭菜</a>: 女粉：不用众筹，我给买！羊师：我叫花木兰<img class="W_img_face" render="ext" src="//img.t.sinajs.cn/t4/appstyle/expression/ext/normal/c9/2018new_chongjing_org.png" title="[憧憬]" alt="[憧憬]" type="face" style="visibility: visible;">//<a target="_blank" render="ext" extra-data="type=atname" href="//weibo.com/n/Peter%E7%BE%8A?from=feed&amp;loc=at" usercard="name=Peter羊">@Peter羊</a>:垃圾手机是重点！来，重新众筹一个！<img class="W_img_face" render="ext" src="//img.t.sinajs.cn/t4/appstyle/expression/ext/normal/7c/2018new_heng_org.png" title="[哼]" alt="[哼]" type="face" style="visibility: visible;"></div>'
+    # soup = BeautifulSoup(dstr, 'lxml')
+    # print(soup.text)
+
+    # url0 = 'https://weibo.com/aj/mblog/fsearch?ajwvr=6&gid=3653960185837784&wvr=6'
+    #
+    # urlt = 'https://weibo.com/aj/mblog/fsearch?ajwvr=6&pre_page=1&page=1&end_id=4397164987657933&min_id=4397162576153957&gid=3653960185837784&wvr=6&leftnav=1&isspecialgroup=1&pagebar=0&__rnd=1563851964894'
+    # urlt2 = 'https://weibo.com/aj/mblog/fsearch?pre_page=1&page=1&end_id=4395881702503031&min_id=4395808361222795&gid=4005405388023195&__rnd=1563877234968'
+    # pweibo = login()
+    # html = pweibo.session.get(urlt2, timeout=(30, 60))
+    # html.encoding = 'utf-8'
+    # jtext = html.text
+    # tjson = json.loads(jtext)
+    # print(tjson['data'])
+    # print('=========================')
+    # html = pweibo.session.get(url1, timeout=(30, 60))
+    # html.encoding = 'utf-8'
+    # jtext = html.text
+    # tjson = json.loads(jtext)
+    # print(tjson['data'])
+    # print('=========================')
+    # # soup = BeautifulSoup(tjson['data'], 'lxml')
+    # # feeds = soup.select('div.WB_feed.WB_feed_v3.WB_feed_v4 > div[tbinfo]')
+    # # for feed in feeds:
+    # #     txtdiv = feed.select_one('div.WB_detail > div.WB_text.W_f14')
+    # #     txt = txtdiv.text.strip()
+    # #     print(txt)
+    # html = pweibo.session.get(url2, timeout=(30, 60))
+    # html.encoding = 'utf-8'
+    # jtext = html.text
+    # tjson = json.loads(jtext)
+    # print(tjson['data'])
+    # soup = BeautifulSoup(tjson['data'], 'lxml')
+    # feeds = soup.select('div.WB_feed.WB_feed_v3.WB_feed_v4 > div[tbinfo]')
+    # for feed in feeds:
+    #     txtdiv = feed.select_one('div.WB_detail > div.WB_text.W_f14')
+    #     txt = txtdiv.text.strip()
+    #     print(txt)
 
 # text1 = 'ouid=5705221157&rouid=2752396553'
 # text2 = 'ouid=5705221157'

@@ -55,3 +55,8 @@ video:
 link:
 
 fwd:
+
+WB_feed_expand->WB_expand S_bg1
+->WB_info ->a.text a:[usercard]=id=1669616825&refer_flag=0000015012_ a:[nick-name]= a:[suda-uatrack]=key=feed_headnick&value=transuser_nick:4396904781188349
+->WB_text
+->WB_media_wrap clearfix->media_box

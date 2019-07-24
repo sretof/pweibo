@@ -223,12 +223,13 @@ class PWeiBo():
             hbamttxt = re.findall(p, text, re.S)
             if len(hbamttxt) > 0:
                 hbamt = float(hbamttxt[0])
-            if '已存入您的钱包' and hbamt > 0:
+            if '已存入您的钱包' in text and hbamt > 0:
                 success = 1
-            # PWeiBo.GLOGGER.info('hb success:{} hbamt:{} text:{}'.format(success, hbamt, text))
+            if not success:
+                PWeiBo.GLOGGER.warning('hb success:{} hbamt:{} text:{}'.format(success, hbamt, text))
         if success:
-            midx = random.randint(0, len(msgs))
-            mt = threading.Thread(target=PWeiBo.sendgroupmsg, args=(pweibo, gid, msgs[midx], 1))
+            midx = random.randint(1, len(msgs))
+            mt = threading.Thread(target=PWeiBo.sendgroupmsg, args=(pweibo, gid, msgs[midx - 1], 3))
             mt.start()
         return success, hbamt
 
@@ -404,9 +405,7 @@ class PWeiBo():
             PWeiBo.GLOGGER.info('>==========fgroupmsg to maxmids end')
             return
         if lenct == 0:
-            PWeiBo.GLOGGER.warning(
-                '>==========fgroupmsg ctcnt == 0 or not hismid url:{},hismid:{} end'.format(chatapiurl, hismid))
-            return
+            raise Exception('fgroupmsg ctcnt == 0 or not hismid url:{},hismid:{} end'.format(chatapiurl, hismid))
         else:
             PWeiBo.GLOGGER.debug('fgroupmsg success gid:{},mid:{},len(ct):{}'.format(gid, mid, lenct))
             self.fgroupmsg(gid, hismid, maxmids)

@@ -50,13 +50,20 @@ def gettimestamp():
     return int(time.time() * 1000)  # 获取13位时间戳
 
 
+def getdaystr(day=None, fmt='%Y%m%d'):
+    if day is None:
+        day = now()
+    return day.strftime(fmt)
+
+
 def test():
-    print('01===>', int('01') == 1)
-    print('02===>', int(today().strftime('%Y%m%d')[6:8]) == 1, int(today().strftime('%Y%m%d')[6:8]))
-    print('1===>', calmonths(), calmonthe())
-    tdate = datetime.date.today()
-    for i in range(0, 25):
-        print(i, ' ', calmonths(tdate, i), ' ', calmonthe(tdate, i))
+    print(today().year)
+    # print('01===>', int('01') == 1)
+    # print('02===>', int(today().strftime('%Y%m%d')[6:8]) == 1, int(today().strftime('%Y%m%d')[6:8]))
+    # print('1===>', calmonths(), calmonthe())
+    # tdate = datetime.date.today()
+    # for i in range(0, 25):
+    #     print(i, ' ', calmonths(tdate, i), ' ', calmonthe(tdate, i))
 
 
 if __name__ == '__main__':
