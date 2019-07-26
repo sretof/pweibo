@@ -93,7 +93,7 @@ def getmaxgpmids(gid):
 
 
 class PWeiBo():
-    weipicdir = 'F:\weibopicn'
+    weipicdir = 'F:\weibopic'
     ctcaches = []
     sgsql = "insert into gmsg(mid,gid,buid,bname,content,cttype,fid,fpath,hasd,mdate,ftime,mtime) " \
             "values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,str_to_date(%s,'%%Y-%%m-%%d %%H:%%i:%%S.%%f'),str_to_date(%s,'%%Y-%%m-%%d %%H:%%i:%%S.%%f'))"
@@ -109,7 +109,7 @@ class PWeiBo():
     downfexecutor = ThreadPoolExecutor(max_workers=5)
 
     SENLOCK = threading.Lock()
-    GLOGGER = logger.TuLog('pweibon', '/log', True, logging.WARNING).getlog()
+    GLOGGER = logger.TuLog('wbgchat', '/log', True, logging.WARNING).getlog()
     CHATGIDS = ('4305987512698522',)
     TLGIDS = ('3653960185837784', '3909747545351455', '4005405388023195', '3951063348253369')
 

@@ -371,39 +371,48 @@ def tcallback(f):
 
 
 if __name__ == '__main__':
-    mpweibo = None
-    mproxies = {}
-    hisgmsgexecutor = ThreadPoolExecutor(max_workers=1)
-    hcg = None
-    while 1:
-        print('=================ms:', Gfcnt)
-        try:
-            if Gfcnt == 0:
-                mpweibo = login(mproxies)
-                Gfcnt = 1
-            if hcg is not None:
-                print('=================hcg.done:', hcg.done())
-            if hcg is None or hcg.done():
-                hcg = hisgmsgexecutor.submit(fgroupshismsg, mpweibo)
-                hcg.add_done_callback(tcallback)
-            fgroupsmsg(mpweibo)
-        except requests.exceptions.SSLError as e:
-            PWeiBo.GLOGGER.exception(e)
-            mproxies = {'http': 'http://127.0.0.1:10080', 'https': 'http://127.0.0.1:10080'}
-            Gfcnt = 0
-        except requests.exceptions.ProxyError as e:
-            PWeiBo.GLOGGER.exception(e)
-            mproxies = {}
-            Gfcnt = 0
-        except Exception as e:
-            print('=========================ex1')
-            PWeiBo.GLOGGER.exception(e)
-            Gfcnt = 0
-        finally:
-            print('=========================fy2')
-            nhour = datetime.datetime.now().hour
-            sleeptime = random.randint(1, 2)
-            if 2 <= nhour < 8:
-                sleeptime = random.randint(10, 1800)
-            PWeiBo.GLOGGER.info('======sleep hour:{} sleep:{}'.format(nhour, sleeptime))
-            time.sleep(sleeptime)
+    # mpweibo = None
+    # mproxies = {}
+    # hisgmsgexecutor = ThreadPoolExecutor(max_workers=1)
+    # hcg = None
+    # while 1:
+    #     print('=================ms:', Gfcnt)
+    #     try:
+    #         if Gfcnt == 0:
+    #             mpweibo = login(mproxies)
+    #             Gfcnt = 1
+    #         if hcg is not None:
+    #             print('=================hcg.done:', hcg.done())
+    #         if hcg is None or hcg.done():
+    #             hcg = hisgmsgexecutor.submit(fgroupshismsg, mpweibo)
+    #             hcg.add_done_callback(tcallback)
+    #         fgroupsmsg(mpweibo)
+    #     except requests.exceptions.SSLError as e:
+    #         PWeiBo.GLOGGER.exception(e)
+    #         mproxies = {'http': 'http://127.0.0.1:10080', 'https': 'http://127.0.0.1:10080'}
+    #         Gfcnt = 0
+    #     except requests.exceptions.ProxyError as e:
+    #         PWeiBo.GLOGGER.exception(e)
+    #         mproxies = {}
+    #         Gfcnt = 0
+    #     except Exception as e:
+    #         print('=========================ex1')
+    #         PWeiBo.GLOGGER.exception(e)
+    #         Gfcnt = 0
+    #     finally:
+    #         print('=========================fy2')
+    #         nhour = datetime.datetime.now().hour
+    #         sleeptime = random.randint(1, 2)
+    #         if 2 <= nhour < 8:
+    #             sleeptime = random.randint(10, 1800)
+    #         PWeiBo.GLOGGER.info('======sleep hour:{} sleep:{}'.format(nhour, sleeptime))
+    #         time.sleep(sleeptime)
+    src = 'http://gslb.miaopai.com/stream/PqCT8HhDo3ly77rSY5JKg64dV6PQoavv9ClQ.mp4?yx=&refer=weibo_app&vend=weibo&label=mp4_hd&mpflag=16&Expires=1564080983&ssig=c2BBzeGJtz&KID=unistore,video&720=&qType=480,fid:880cbc9faf0511e9b71e64006a93aa65'
+    ipreg = r'.+/(\S+)\.(\S+)\?'
+    rtext = re.findall(ipreg, src, re.S)
+    fname = ''
+    if len(rtext) > 0 and len(rtext[0]) > 1:
+        fpf = rtext[0][0]
+        fsf = rtext[0][1]
+        fname = fpf + '.' + fsf
+    print(fname)
