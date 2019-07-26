@@ -1,5 +1,6 @@
 # -*- coding:utf-8 -*-
 import base64
+import datetime
 import json
 import logging
 import os
@@ -83,7 +84,7 @@ def savegcts(sql):
 
 
 class PWeiBo():
-    weipicdir = 'F:\weibopic'
+    weipicdir = 'F:\OneDrive\weibopic'
     ctcaches = []
     sgsql = "insert into gmsg(mid,gid,bname,content,cttype,fid,fpath,hasd,fdate,ftime) values (%s,%s,%s,%s,%s,%s,%s,%s,%s,str_to_date(%s,'%%Y-%%m-%%d %%H:%%i:%%S.%%f'))"
 
@@ -92,11 +93,15 @@ class PWeiBo():
     MGOCTCOLL = 'Contents'
 
     ADUID = ('1678870364',)
-    ADURL = ('tui.weibo.com',)
+    ADURL = ('tui.weibo',)
 
     SENLOCK = threading.Lock()
 
     downfexecutor = ThreadPoolExecutor(max_workers=5)
+
+    TLGIDS = ('3653960185837784', '3909747545351455', '4005405388023195', '3951063348253369')
+
+    NDIMGCLS = ['W_img_statistics', 'W_face_radius']
 
     # sgsql = "insert into gmsg(mid,gid,bname,content,cttype,fid,fpath,hasd,fdate) values (%s,%s,%s,%s,%s,%s,%s,%s,%s)"
 
@@ -251,9 +256,12 @@ class PWeiBo():
         # }
 
     @staticmethod
-    def downpimg(dpweibo, imgurl, fpath):
+    def downpimg(dpweibo, imgurl, fpath, mtype='13'):
         try:
-            res = dpweibo.session.get(imgurl, timeout=(30, 300))
+            if mtype == '14' and 'weibo' not in imgurl:
+                res = requests.get(imgurl, timeout=(30, 300))
+            else:
+                res = dpweibo.session.get(imgurl, timeout=(30, 300))
             ftype = res.headers.get('Content-Type', '')
             PWeiBo.GLOGGER.info('downpimg:,filetype:{} | imgurl:{}'.format(ftype, imgurl))
             ftr = r'(\w+)/(\w+)'
@@ -261,8 +269,8 @@ class PWeiBo():
             if rtext[0][0] != 'image':
                 raise Exception('downpimg ftype is not image')
             img = res.content
-            fuid = ''.join(str(uuid.uuid1()).split('-'))
-            fname = fuid + '.' + rtext[0][1]
+            fuuid = ''.join(str(uuid.uuid1()).split('-'))
+            fname = fuuid + '.' + rtext[0][1]
             with open(fpath + '\\' + fname, 'wb') as f:
                 f.write(img)
         except Exception as ex:
@@ -271,9 +279,16 @@ class PWeiBo():
         return fname
 
     @staticmethod
-    def downwpage(dpweibo, src, fid, fdir, mtype='13'):
+    def downwpage(dpweibo, cturl, src, fid, fdir, mtype='13'):
         try:
-            html = dpweibo.session.get(src, timeout=(30, 300))
+            if 't.cn' in src:
+                res = dpweibo.session.get(src, allow_redirects=False, timeout=(30, 300))
+                if '100101B2094254D06BA7FB4998' in res.headers.get('location', ''):
+                    return '404'
+            if mtype == '14' and 'weibo' not in src and 'sina' not in src:
+                html = requests.get(src, timeout=(30, 300))
+            else:
+                html = dpweibo.session.get(src, timeout=(30, 300))
             html.encoding = 'utf-8'
             text = html.text
             if mtype == '13':
@@ -283,44 +298,66 @@ class PWeiBo():
                 ptext = json.loads(jtext)
                 thtml = ptext['html']
                 soup = BeautifulSoup(thtml, 'lxml')
-            elif mtype == '14':
+            elif mtype == '15':
                 soup = BeautifulSoup(text, 'lxml')
+                eframe = soup.select_one('div.WB_editor_iframe_new')
+                if eframe is None:
+                    eframe = soup.select_one('div.WB_editor_iframe')
+                efsty = eframe.get('style', '')
+                if efsty:
+                    efsty = efsty.replace('hidden', 'visible')
+                    eframe['style'] = efsty
+                shtml = str(eframe)
+                soup = BeautifulSoup(shtml, 'lxml')
             else:
                 soup = BeautifulSoup(text, 'lxml')
-                shtml = str(soup.select_one('div.WB_editor_iframe_new'))
-                soup = BeautifulSoup(shtml, 'lxml')
-            idoms = soup.select('img')
-            fimgdir = fid + '.files'
-            filepath = fdir + '\\' + fimgdir
-            if not os.path.exists(filepath):
-                os.makedirs(filepath)
-            for idom in idoms:
-                iurl = idom.get('src', '')
-                if iurl.startswith('//'):
-                    iurl = 'https:' + iurl
-                elif iurl.startswith('http') or iurl.startswith('https'):
-                    pass
-                elif '.files\\' in iurl:
-                    iurl = ''
-                else:
-                    PWeiBo.GLOGGER.warning('???????page iurl ???iurl:{}'.format(iurl))
-                    iurl = ''
-                if iurl:
-                    fname = PWeiBo.downpimg(dpweibo, iurl, filepath)
-                    if not fname:
-                        PWeiBo.GLOGGER.warning('down page img error:purl:{},iurl:{}'.format(src, iurl))
+            if mtype == '13' or mtype == '15':
+                idoms = soup.select('img')
+                fimgdir = fid + '.files'
+                filepath = fdir + '\\' + fimgdir
+                if not os.path.exists(filepath):
+                    os.makedirs(filepath)
+                for idom in idoms:
+                    idombk = False
+                    clss = idom.get('class', [])
+                    for cls in clss:
+                        if cls in PWeiBo.NDIMGCLS:
+                            idombk = True
+                            break
+                    if idombk:
+                        continue
+                    iurl = idom.get('src', '')
+                    if not iurl or iurl.startswith('data'):
+                        iurl = idom.get('data-src', '')
+                    if iurl.startswith('//'):
+                        iurl = 'https:' + iurl
+                    elif iurl.startswith('http'):
+                        pass
+                    elif '.files\\' in iurl:
+                        iurl = ''
+                    elif not iurl:
+                        pass
                     else:
-                        idom['src'] = fimgdir + '\\' + fname
+                        PWeiBo.GLOGGER.warning('???????page iurl ???cturl:{},iurl:{}'.format(cturl, iurl))
+                        iurl = ''
+                    if iurl:
+                        fname = PWeiBo.downpimg(dpweibo, iurl, filepath, mtype)
+                        if not fname:
+                            PWeiBo.GLOGGER.warning('down page img error:purl:{},iurl:{}'.format(src, iurl))
+                        else:
+                            idom['src'] = fimgdir + '\\' + fname
             locpath = fdir + '\\' + fid + '.html'
             with open(locpath, 'w', encoding='utf-8') as f:
                 f.write(str(soup.html))
         except Exception as ex:
             locpath = ''
+            PWeiBo.GLOGGER.error("EEEEEEEEEEEEEEE|downwpage:cturl{} ; purl:{}".format(cturl, src))
             PWeiBo.GLOGGER.exception(ex)
+            # raise ex
         return locpath
 
     @staticmethod
-    def downtlpic(dpweibo, src, fid, fdir):
+    def downtlpic(dpweibo, cturl, src, fid, fdir):
         try:
             html = dpweibo.session.get(src, timeout=(30, 300))
             html.encoding = 'utf-8'
@@ -347,20 +384,21 @@ class PWeiBo():
         except Exception as ex:
             locpath = ''
             PWeiBo.GLOGGER.exception(ex)
+            # raise ex
         return locpath
 
     @staticmethod
-    def downtlvideo(dpweibo, src, fid, fdir):
+    def downtlvideo(dpweibo, cturl, src, fid, fdir):
         try:
-            html = dpweibo.session.get(src, timeout=(30, 300))
-            html.encoding = 'utf-8'
-            text = html.text
-            soup = BeautifulSoup(text, 'lxml')
-            dvd = soup.select_one('div.weibo_player_fa > div[node-type="common_video_player"][video-sources]')
-            vurl = unquote(dvd['video-sources'])
-            vurl = vurl.replace('fluency=', '', 1)
+            # html = dpweibo.session.get(src, timeout=(30, 300))
+            # html.encoding = 'utf-8'
+            # text = html.text
+            # soup = BeautifulSoup(text, 'lxml')
+            # dvd = soup.select_one('div.weibo_player_fa > div[node-type="common_video_player"][video-sources]')
+            # vurl = unquote(dvd['video-sources'])
+            # vurl = vurl.replace('fluency=', '', 1)
             ipreg = r'.+/(\w+)\.(\w+)\?'
-            rtext = re.findall(ipreg, vurl, re.S)
+            rtext = re.findall(ipreg, src, re.S)
             fname = ''
             if len(rtext) > 0 and len(rtext[0]) > 1:
                 fpf = rtext[0][0]
@@ -368,7 +406,7 @@ class PWeiBo():
                 fname = fpf + '.' + fsf
             if not fname:
                 raise Exception('video fname is none;src:{},fid:{}'.format(src, fid))
-            res = dpweibo.session.get(vurl, timeout=(30, 300))
+            res = dpweibo.session.get(src, timeout=(30, 300))
             locpath = fdir + '\\' + fname
             img = res.content
             with open(locpath, 'wb') as f:
@@ -376,6 +414,7 @@ class PWeiBo():
         except Exception as ex:
             locpath = ''
             PWeiBo.GLOGGER.exception(ex)
+            # raise ex
         return locpath
 
     @staticmethod
@@ -395,6 +434,7 @@ class PWeiBo():
         uid = pdoc['uid']
         mid = pdoc['mid']
         gid = pdoc['gid']
+        cturl = pdoc['cturl']
         if not gid:
             gid = 'others'
         if fdir is None:
@@ -407,11 +447,11 @@ class PWeiBo():
             purl = media['url']
             fid = media['fid']
             if media['mtype'] == '13' or media['mtype'] == '14' or media['mtype'] == '15':
-                locpath = PWeiBo.downwpage(dweibo, purl, fid, fdir, media['mtype'])
+                locpath = PWeiBo.downwpage(dweibo, cturl, purl, fid, fdir, media['mtype'])
             elif media['mtype'].endswith('21'):
-                locpath = PWeiBo.downtlpic(dweibo, purl, fid, fdir)
+                locpath = PWeiBo.downtlpic(dweibo, cturl, purl, fid, fdir)
             else:
-                locpath = PWeiBo.downtlvideo(dweibo, purl, fid, fdir)
+                locpath = PWeiBo.downtlvideo(dweibo, cturl, purl, fid, fdir)
             if locpath:
                 udpgpmedia(mid, fid, locpath)
             else:
@@ -629,7 +669,7 @@ class PWeiBo():
         ffiles = []
         infod = fwd.select_one('div.WB_info a:first-child')
         if infod is None:
-            return True, 'fdel0', {'ftxt': 'del'}
+            return None, None, None
         suda = infod.get('suda-uatrack', '')
         sreg = r'transuser_nick:(\d+)'
         srtxt = re.findall(sreg, suda, re.S)
@@ -640,19 +680,22 @@ class PWeiBo():
                 funame = infod.get('nick-name', '')
                 fuc = infod.get('usercard', '')
                 freg = r'id=(\d+)'
-                ftxt = re.findall(freg, fuc, re.S)
-                fuid = '' if len(ftxt) < 1 else ftxt[0]
+                fuidtxt = re.findall(freg, fuc, re.S)
+                fuid = '' if len(fuidtxt) < 1 else fuidtxt[0]
                 fctimed = fwd.select_one('div.WB_from a:first-child')
                 fcurl = 'https://weibo.com' + fctimed.get('href', '')
                 fctime = fctimed.get('title', '')
                 txtd = fwd.select_one('div.WB_text')
-                ftxt, fmtype, ffiles = PWeiBo.getdetailtxt(txtd, fmtype, ffiles)
+                fwdtxt, fmtype, ffiles = PWeiBo.getdetailtxt(txtd, fmtype, ffiles)
                 mediad = fwd.select_one('div.WB_media_wrap > div.media_box')
                 fmtype, ffiles = PWeiBo.getdetailmedia(mediad, fuid, fwdmid, fmtype, ffiles)
+                retfwdoc = {'mid': fwdmid, 'ctext': fwdtxt, 'cturl': fcurl, 'ctime': fctime, 'uid': fuid, 'uname': funame, 'mtype': fmtype, 'media': ffiles}
             else:
                 fwdhsave = True
-        return fwdhsave, fwdmid, {'mid': fwdmid, 'ctext': ftxt, 'cturl': fcurl, 'ctime': fctime, 'uid': fuid, 'uname': funame, 'mtype': fmtype,
-                                  'media': ffiles}
+                retfwdoc = {'mid': fwdmid, 'ctext': fsdt.get('ctext', ''), 'cturl': fsdt.get('cturl', ''), 'ctime': fsdt.get('ctime', ''),
+                            'uid': fsdt.get('uid', ''),
+                            'uname': fsdt.get('uname', ''), 'mtype': fsdt.get('mtype', ''), 'media': fsdt.get('media', [])}
+        return fwdhsave, fwdmid, retfwdoc
 
     @staticmethod
     def getdetailtxt(txtdiv, mtype, files):
@@ -660,28 +703,48 @@ class PWeiBo():
         idoms = txtdiv.select('img')
         txtsuf = ''
         for adom in adoms:
-            fuuid = ''.join(str(uuid.uuid1()).split('-'))
+            fauuid = ''.join(str(uuid.uuid1()).split('-'))
             if adom.get('render', '') == 'ext':
                 pass
             elif 'WB_text_opt' in adom.get('class', []):
                 mtype = '13'
                 furl = adom.get('href', '')
-                if not furl.startswith('http'):
+                if furl.startswith('//'):
                     furl = 'https:' + furl
-                file = {'url': furl, 'hasd': 0, 'mtype': mtype, 'fid': fuuid}
-                files.append(file)
+                elif furl.startswith('/'):
+                    furl = 'https://weibo,com' + furl
+                elif furl.startswith('http'):
+                    pass
+                else:
+                    furl = ''
+                    PWeiBo.GLOGGER.warning('WB_text_opt adom url???????????????{}'.format(furl))
+                if furl:
+                    file = {'url': furl, 'hasd': 0, 'mtype': mtype, 'fid': fauuid}
+                    files.append(file)
             elif adom.get('action-type', '') == 'feed_list_url':
+                lidom = adom.select_one('i.ficon_cd_link')
+                vidom = adom.select_one('i.ficon_cd_video')
+                wficon = adom.select_one('i.W_ficon')
                 hasd = 0
                 furl = adom.get('href', '')
-                # 超话
+                amtype = '14'
                 if 'huati.weibo' in furl:
+                    furl = ''
+                elif vidom is not None:
                     hasd = 1
-                else:
+                    amtype = '22'
+                elif lidom is not None:
                     mtype = '14'
-                file = {'url': furl, 'hasd': hasd, 'mtype': mtype, 'fid': fuuid}
-                files.append(file)
+                elif wficon is not None:
+                    furl = ''
+                else:
+                    furl = ''
+                    PWeiBo.GLOGGER.warning('txtdiv adom1???????????????' + str(adom))
+                if furl:
+                    file = {'url': furl, 'hasd': hasd, 'mtype': amtype, 'fid': fauuid}
+                    files.append(file)
             else:
-                PWeiBo.GLOGGER.warning('adom???????????????' + str(adom))
+                PWeiBo.GLOGGER.warning('txtdiv adom2???????????????' + str(adom))
         for idom in idoms:
             itit = idom.get('title', '')
             if itit:
@@ -692,19 +755,45 @@ class PWeiBo():
         return txt, mtype, files
 
     @staticmethod
+    def getvideosource(psv):
+        psvs = psv.split('=http')
+        if len(psvs) > 0:
+            psvs.reverse()
+            for p in psvs:
+                if 'ssig' in p and 'qType' in p:
+                    psv = 'http' + p
+                    break
+        return unquote(psv)
+
+    @staticmethod
     def getdetailmedia(mediadiv, uid, mid, mtype, files):
         if mediadiv is not None:
-            fuid = ''.join(str(uuid.uuid1()).split('-'))
+            fmuuid = ''.join(str(uuid.uuid1()).split('-'))
             mediaul = mediadiv.select_one('ul.WB_media_a')
             fdiv = mediadiv.select_one('div.WB_feed_spec[action-data]')
+            fvdiv = mediadiv.select_one('div.WB_feed_spec > div.spec_box > div[video-sources]')
             if fdiv is not None and fdiv['action-data'].startswith('url'):
+                hasd = 0
                 furl = unquote(fdiv['action-data'][4:])
-                if not furl.startswith('http'):
-                    furl = 'https://' + furl
+                if furl.startswith('//'):
+                    furl = 'https:' + furl
+                elif furl.startswith('http'):
+                    pass
+                else:
+                    furl = ''
+                    PWeiBo.GLOGGER.warning('getdetailmedia fdiv url???????????????{}'.format(furl))
+                smtype = '15'
                 if 'ttarticle' in furl:
+                    for oldf in files:
+                        if oldf['mtype'] == '14':
+                            oldf['hasd'] = 1
                     mtype = '15'
-                file = {'url': furl, 'hasd': 1, 'mtype': mtype, 'fid': fuid}
-                files.append(file)
+                else:
+                    smtype = '99'
+                    hasd = 1
+                if furl:
+                    file = {'url': furl, 'hasd': hasd, 'mtype': smtype, 'fid': fmuuid}
+                    files.append(file)
             if mediaul is not None:
                 piclis = mediaul.select('li.WB_pic')
                 if len(piclis) > 0:
@@ -713,54 +802,81 @@ class PWeiBo():
                     acdtxt = picli.get('action-data', '')
                     rpic = r'pid=(\w+)|pic_id=(\w+)'
                     rtext = re.findall(rpic, acdtxt, re.S)
-                    pid = rtext[0][0] or rtext[0][1]
-                    if pid:
+                    if len(rtext) > 0:
+                        pid = rtext[0][0] or rtext[0][1]
                         furl = 'https://photo.weibo.com/{}/wbphotos/large/mid/{}/pid/{}'.format(uid, mid, pid)
                         file = {'url': furl, 'hasd': 0, 'mtype': mtype, 'fid': pid}
                         files.append(file)
-                videolis = mediaul.select('li.WB_video')
-                if len(videolis) > 0:
+                    else:
+                        vpic = r'gif_url=([^&]+)'
+                        vtext = re.findall(vpic, acdtxt, re.S)
+                        if len(vtext) > 0:
+                            vurl = 'https:' + unquote(vtext[0])
+                            vfuid = ''.join(str(uuid.uuid1()).split('-'))
+                            file = {'url': vurl, 'hasd': 0, 'mtype': '22', 'fid': vfuid}
+                            files.append(file)
+                videoli = mediaul.select_one('li.WB_video[video-sources]')
+                if videoli is not None:
                     mtype = mtype + '22'
-            if mediaul is None and fdiv is None:
+                    pvs = PWeiBo.getvideosource(videoli['video-sources'])
+                    vfuid = ''.join(str(uuid.uuid1()).split('-'))
+                    file = {'url': pvs, 'hasd': 0, 'mtype': '22', 'fid': vfuid}
+                    files.append(file)
+            if fvdiv is not None:
+                mtype = mtype + '23'
+                pvs = PWeiBo.getvideosource(fvdiv['video-sources'])
+                vfuid = ''.join(str(uuid.uuid1()).split('-'))
+                file = {'url': pvs, 'hasd': 0, 'mtype': '23', 'fid': vfuid}
+                files.append(file)
+            if mediaul is None and fdiv is None and fvdiv is None:
                 PWeiBo.GLOGGER.warning('media_box???????????????' + str(mediadiv))
         return mtype, files
 
-    def fgroupct(self, gid, hisp={}, maxmid=0, maxy=5):
+    def fgrouptl(self, gid, hisp={}, maxmid=0, maxy=1, rtcnt=0):
         gcturl = 'https://weibo.com/aj/mblog/fsearch?gid={}&_rnd={}'.format(gid, cald.gettimestamp())
         if hisp:
             gcturl = 'https://weibo.com/aj/mblog/fsearch?{}&end_id={}&min_id={}&gid={}&__rnd={}'.format(hisp['page'], hisp['emid'], hisp['mmid'], gid,
                                                                                                         cald.gettimestamp())
-        print(gcturl)
+        PWeiBo.GLOGGER.info('GGGGGGGGGGGGGGGGGGGCURL====================>fgroupct url:{}'.format(gcturl))
         text = self.gethtml(gcturl)
-
         tjson = json.loads(text)
         gpsoup = BeautifulSoup(tjson['data'], 'lxml')
-
         hemid, hpge, feeds = PWeiBo.getpageinfo(gpsoup)
+        PWeiBo.GLOGGER.info('GGGGGGGGGGGGGGGGGGGCURL-FLENG====================>LEN:{},HEMID:{},page:{}'.format(len(feeds), hemid, hpge))
         hmmid = ''
+
         for feed in feeds:
             mid, uid, ruid, detail = PWeiBo.getfeedinfo(feed)
             if detail is None or not mid or not uid or uid in PWeiBo.ADUID:
                 PWeiBo.GLOGGER.warning('fgroupct maxmid continue...gid:{},mid:{},uid:{},url:{}'.format(gid, mid, uid, gcturl))
                 continue
-            if int(mid) <= maxmid:
-                PWeiBo.GLOGGER.info('fgroupct maxmid stop....gid:{},mid:{},url:{}'.format(gid, mid, gcturl))
-                hmmid = ''
+            if int(mid) <= int(maxmid):
+                hmmid = '-1'
                 break
 
             curl, uname, ctime = PWeiBo.getdetailinfo(feed)
             if not curl or not ctime:
                 PWeiBo.GLOGGER.warning('fgroupct maxmid continue...gid:{},mid:{},uid:{},curl:{},ctime:{},url:{}'.format(gid, mid, uid, curl, ctime, gcturl))
                 continue
+            isad = False
             for adurl in PWeiBo.ADURL:
                 if adurl in curl:
-                    continue
+                    isad=True
+                    break
+            if isad:
+                continue
 
             if cald.now().year - int(ctime[0:4]) > maxy:
                 PWeiBo.GLOGGER.info('fgroupct maxy stop....gid:{},mid:{},ctime:{},url:{}'.format(gid, mid, ctime, gcturl))
-                hmmid = ''
+                hmmid = '-2'
                 break
 
+            if not hemid:
+                hemid = mid
+                hpge = hpge or hisp.get('page', '') or 'pre_page=1&page=1'
+                print('=====================', hpge)
+
+            PWeiBo.GLOGGER.info('SSSSSSSSSS-CURL====================>fgroupct url:{}'.format(curl))
             # 0 txt;13/a l txt;14 link;21 pics;22 video;31 fwd
             mtype = '0'
             files = []
@@ -782,16 +898,27 @@ class PWeiBo():
             hmmid = mid
             try:
                 savedetail(gid, uid, uname, mid, mtype, curl, ctime, txt, files, fwdhsave, fwdmid, fwddoc)
+                if len(files) > 0:
+                    PWeiBo.downfexecutor.submit(PWeiBo.downtlmedia, self, mid)
             except Exception as ex:
-                PWeiBo.GLOGGER.error('savedetail error:gid{},mid:{},uid:{}'.format(gid, mid, uid))
-                PWeiBo.GLOGGER.exception(ex)
-            if len(files) > 0:
-                PWeiBo.downfexecutor.submit(PWeiBo.downtlmedia, self, mid)
-        if hemid and hpge and hmmid:
-            self.fgroupct(gid, {'emid': hemid, 'mmid': hmmid, 'page': hpge}, maxmid, maxy)
+                PWeiBo.GLOGGER.error('savedetail error:ex:{},gid{},mid:{},uid:{}'.format(str(ex), gid, mid, uid))
+                # PWeiBo.GLOGGER.exception(ex)
+        if hmmid == '-1':
+            PWeiBo.GLOGGER.info('fgroupct END maxmid=====================maxmid stop....gid:{},url:{}'.format(gid, gcturl))
+        elif hmmid == '-2':
+            PWeiBo.GLOGGER.info('fgroupct END maxy=====================maxy stop....gid:{},url:{}'.format(gid, gcturl))
+        elif hemid and hpge and hmmid:
+            sleeptime = random.randint(4, 24)
+            sleeptime = round(sleeptime * 0.1, 1)
+            time.sleep(sleeptime)
+            self.fgrouptl(gid, {'emid': hemid, 'mmid': hmmid, 'page': hpge}, maxmid, maxy)
+        elif not hemid and rtcnt < 3:
+            PWeiBo.GLOGGER.error('fgroupct rtcnt ???=====================html error rtcnt....gid:{},url:{},rtcnt:{}'.format(gid, gcturl, rtcnt))
+            sleeptime = random.randint(10, 30)
+            time.sleep(sleeptime)
+            self.fgrouptl(gid, hisp, maxmid, maxy, rtcnt + 1)
         else:
-            print('END=====================')
-            print(tjson['data'])
+            PWeiBo.GLOGGER.error('fgroupct END ???=====================html error....gid:{},url:{},html:{}'.format(gid, gcturl, tjson['data']))
 
 
 def login(proxies={}):
@@ -849,20 +976,27 @@ def getMongoWDb():
     return wdb
 
 
-def getmaxgpmids(gid):
+def getmaxgpmids():
     wdb = getMongoWDb()
     coll = wdb[PWeiBo.MGOCTCOLL]
     results = coll.aggregate([{'$group': {'_id': "$gid", 'maxmid': {'$max': "$mid"}}}])
-    print(gid)
-    print(type(results))
-    for r in results:
-        print(r)
+    gsmid = {}
+    for res in results:
+        gsmid[res['_id']] = res['maxmid']
+    return gsmid
 
 
 def getgpbymid(mid):
     wdb = getMongoWDb()
     coll = wdb[PWeiBo.MGOCTCOLL]
     result = coll.find_one({'mid': mid})
+    return result
+
+
+def getgpbygidandmid(gid, mid):
+    wdb = getMongoWDb()
+    coll = wdb[PWeiBo.MGOCTCOLL]
+    result = coll.find_one({'gid': gid, 'mid': mid})
     return result
 
 
@@ -875,7 +1009,11 @@ def udpgpdetail(mid, field, val):
 def udpgpmedia(mid, fid, locpath):
     wdb = getMongoWDb()
     coll = wdb[PWeiBo.MGOCTCOLL]
-    coll.update_one({'mid': mid, 'media.fid': fid}, {'$set': {'media.$.hasd': 1, 'media.$.locpath': locpath}})
+    if locpath == '404':
+        # pass
+        coll.update_one({'mid': mid, 'media.fid': fid}, {'$set': {'media.$.hasd': 1, 'media.$.mtype': locpath}})
+    else:
+        coll.update_one({'mid': mid, 'media.fid': fid}, {'$set': {'media.$.hasd': 1, 'media.$.locpath': locpath}})
 
 
 def udpgpfwdmedia(mid, field, val):
@@ -924,7 +1062,46 @@ def savedetail(gid, uid, uname, mid, mtype, curl, ctime, txt, files, fwdhsave, f
     coll.insert_one(doc)
 
 
+def fgroupstl(fgweibo):
+    gsmmid = getmaxgpmids()
+    for gid in PWeiBo.TLGIDS:
+        fgweibo.fgrouptl(gid, maxmid=int(gsmmid.get(gid, '0')))
+
+
+global Gfcnt
+Gfcnt = 0
+
 if __name__ == '__main__':
+    mpweibo = None
+    while 1:
+        try:
+            if Gfcnt == 0:
+                mpweibo = login()
+            fgroupstl(mpweibo)
+        except Exception as e:
+            PWeiBo.GLOGGER.exception(e)
+        finally:
+            Gfcnt = 0
+            nhour = datetime.datetime.now().hour
+            sleeptime = random.randint(60, 60 * 10)
+            if 2 <= nhour < 8:
+                sleeptime = random.randint(60 * 30, 60 * 60)
+            PWeiBo.GLOGGER.info('======sleep hour:{} sleep:{}'.format(nhour, sleeptime))
+            time.sleep(sleeptime)
+
+    # mpweibo = login()
+    # PWeiBo.downtlmedia(mpweibo, '4327710203535929')
+    # TEST GID 4169641444240939
+    # mpweibo.fgrouptl('4169641444240939')
+
+    # print(unquote('http%3A%2F%2Ff.us.sinaimg.cn%2F002qSGxhlx07vCqsnjGU01041200rkgG0E010.mp4%3Flabel%3Dmp4_720p%26template%3D1280x720.23.0%26trans_finger%3Dbead91e89870c048e540ef7cd58c7c03%26Expires%3D1564039001%26ssig%3DFuzpR6KBz7%26KID%3Dunistore%2Cvideo&qType=720'))
+
+    # svurl = 'http%253A%252F%252Ffus.cdn.krcom.cn%252F002U5p9Ulx07vH9K7HzO010412051bpl0E020.mp4%253Flabel%253Dmp4_720p%2526template%253D1280x720.23.0%2526trans_finger%253Dee0f61d2722f59c3d0002c6df46d9912%2526Expires%253D1564037492%2526ssig%253DzhvY7u7NBU%2526KID%253Dunistore%252Cvideo&480=http%3A%2F%2Ffus.cdn.krcom.cn%2F001TVd4flx07vH9x7IYE01041202qUS50E010.mp4%3Flabel%3Dmp4_hd%26template%3D852x480.23.0%26trans_finger%3D68f0dbe8b9301bd6b1b19fe77896f407%26Expires%3D1564037492%26ssig%3DIGY3zJfyNW%26KID%3Dunistore%2Cvideo&720'
+    # svurl2 = 'http%3A%2F%2Ffus.cdn.krcom.cn%2F002U5p9Ulx07vH9K7HzO010412051bpl0E020.mp4%3Flabel%3Dmp4_720p%26template%3D1280x720.23.0%26trans_finger%3Dee0f61d2722f59c3d0002c6df46d9912%26Expires%3D1564037492%26ssig%3DzhvY7u7NBU%26KID%3Dunistore%2Cvideo&qType=720&1080=http%3A%2F%2Fkrcom.cn%2F2174585797%2Fepisodes%2F2358773%3A4397901137560480'
+    # vurl = unquote(svurl)
+    # vurl2 = unquote(svurl2)
+    # print(vurl)
+    # print(vurl2)
     # getgpbymid('4169669105280413')
     # rmtxt = ['2']
     # fmid = 'x' if len(rmtxt) < 1 else rmtxt[0]
@@ -938,9 +1115,6 @@ if __name__ == '__main__':
     #
     # print(cald.getdaystr())
     # getmaxgpmids('1')
-    pweibo = login()
-    pweibo.fgroupct('3653960185837784')
-    # PWeiBo.downtlmedia(pweibo, '4397507414797738')
 
     # url = 'dfe42234ly1g5anuzw6avg20dc0dche1.files\\7a8dfbd8ade411e99e5264006a93aa65.gif'
     # print('.files\\' in url)

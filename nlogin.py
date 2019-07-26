@@ -1,3 +1,4 @@
+# -*- coding:utf-8 -*-
 import base64
 import datetime
 import json
@@ -492,6 +493,6 @@ if __name__ == '__main__':
             sleeptime = random.randint(6, 24)
             sleeptime = round(sleeptime * 0.1, 1)
             if 2 <= nhour < 8:
-                sleeptime = random.randint(10, 1800)
+                sleeptime = random.randint(60 * 5, 60 * 30)
             PWeiBo.GLOGGER.info('======sleep hour:{} sleep:{}'.format(nhour, sleeptime))
             time.sleep(sleeptime)
