@@ -54,7 +54,7 @@ class WbGTlCmp:
             except Exception as fgex:
                 self.mlogger.error('fgrouptlpage load and soup error,text:{}'.format(text))
         self.mlogger.info('fgrouptlpage==========>rcode:{},feedslen:{},HEMID:{},page:{},gtlurl:{}'.format(rcode, len(feeds), hemid, hpge, gtlurl))
-        return gtlurl, hemid, hpge, feeds
+        return gtlurl, rcode, hemid, hpge, feeds
 
     def __alygtlfeeds(self, gid, gtlurl, feeds):
         for feed in feeds:
@@ -125,9 +125,8 @@ class WbGTlCmp:
     def fgrouptl(self, gid, stamid='', endmid='', endday=''):
         if not endday:
             endday = cald.getdaystr(cald.calmonths(x=12))
-        gtlurl, hemid, hpge, feeds = self.__fgrouptlpage(gid)
-        hmmid = ''
-        self.__alygtlfeeds(gid, gtlurl, feeds)
+        gtlurl, rcode, hemid, hpge, feeds = self.__fgrouptlpage(gid)
+        hmmid = self.__alygtlfeeds(gid, gtlurl, feeds, stamid, endmid)
 
 
 if __name__ == '__main__':
