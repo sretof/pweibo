@@ -328,11 +328,11 @@ def login(proxies={}):
 
 
 def fgroupsmsg(pweibo):
-    cn=5
-    while cn>0:
+    cn = 5
+    while cn > 0:
         print('t:{},muid:{}'.format(current_thread().getName(), pweibo.uid))
         time.sleep(1)
-        cn=cn-1
+        cn = cn - 1
     # try:
     #     for gid in PWeiBo.CHATGIDS:
     #         maxmids = getmaxmids(gid)
@@ -369,8 +369,37 @@ def tcallback(f):
         Gfcnt = 0
         # raise ex
 
+PLOCK = threading.Lock()
+
+def slp(n):
+    time.sleep(2)
+    PLOCK.acquire()
+    print('done===', n)
+    PLOCK.release()
+
 
 if __name__ == '__main__':
+    downfexecutor = ThreadPoolExecutor(max_workers=2)
+    fmap = {}
+    for i in [1,2,3]:
+       f = downfexecutor.submit(slp,i)
+       fmap['fidx'+str(i)]=f
+
+    end = False
+    while not end:
+        for k in fmap:
+            if fmap[k].done():
+                end = True
+            else:
+                end = False
+                break
+        for k in fmap:
+            PLOCK.acquire()
+            print(k,fmap[k].done())
+            PLOCK.release()
+        time.sleep(0.5)
+
+
     # mpweibo = None
     # mproxies = {}
     # hisgmsgexecutor = ThreadPoolExecutor(max_workers=1)
@@ -407,12 +436,12 @@ if __name__ == '__main__':
     #             sleeptime = random.randint(10, 1800)
     #         PWeiBo.GLOGGER.info('======sleep hour:{} sleep:{}'.format(nhour, sleeptime))
     #         time.sleep(sleeptime)
-    src = 'http://gslb.miaopai.com/stream/PqCT8HhDo3ly77rSY5JKg64dV6PQoavv9ClQ.mp4?yx=&refer=weibo_app&vend=weibo&label=mp4_hd&mpflag=16&Expires=1564080983&ssig=c2BBzeGJtz&KID=unistore,video&720=&qType=480,fid:880cbc9faf0511e9b71e64006a93aa65'
-    ipreg = r'.+/(\S+)\.(\S+)\?'
-    rtext = re.findall(ipreg, src, re.S)
-    fname = ''
-    if len(rtext) > 0 and len(rtext[0]) > 1:
-        fpf = rtext[0][0]
-        fsf = rtext[0][1]
-        fname = fpf + '.' + fsf
-    print(fname)
+    # src = 'http://gslb.miaopai.com/stream/PqCT8HhDo3ly77rSY5JKg64dV6PQoavv9ClQ.mp4?yx=&refer=weibo_app&vend=weibo&label=mp4_hd&mpflag=16&Expires=1564080983&ssig=c2BBzeGJtz&KID=unistore,video&720=&qType=480,fid:880cbc9faf0511e9b71e64006a93aa65'
+    # ipreg = r'.+/(\S+)\.(\S+)\?'
+    # rtext = re.findall(ipreg, src, re.S)
+    # fname = ''
+    # if len(rtext) > 0 and len(rtext[0]) > 1:
+    #     fpf = rtext[0][0]
+    #     fsf = rtext[0][1]
+    #     fname = fpf + '.' + fsf
+    # print(fname)
