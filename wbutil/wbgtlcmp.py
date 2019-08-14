@@ -14,6 +14,9 @@ import wbutil.wbmon as wbmon
 from wbutil import TLFeedAly
 from wbutil import WbComp
 
+import random
+import time
+
 
 class WbGTlCmp:
     GLOGGER = logger.TuLog('wbgtlcmp', '/../log', True, logging.WARNING).getlog()
@@ -53,28 +56,44 @@ class WbGTlCmp:
         except Exception as fpex:
             self.mlogger.exception(fpex)
         if not hemid:
-            self.mlogger.warning('WbGTlCmp fgrouptlpage EEEEE not hemid=====>gid:{},rcode:{},feedslen:{},hemid:{},page:{},gtlurl:{}'.format(
-                gid, rcode, len(feeds), hemid, hpge, gtlurl))
+            self.mlogger.warning(
+                'WbGTlCmp fgrouptlpage EEEEE not hemid=====>gid:{},rcode:{},feedslen:{},hemid:{},hpage:{},gtlurl:{}'.format(
+                    gid, rcode, len(feeds), hemid, hpge, gtlurl))
         else:
-            self.mlogger.debug('WbGTlCmp fgrouptlpage=====>gid:{},rcode:{},feedslen:{},hemid:{},page:{},gtlurl:{}'.format(
-                gid, rcode, len(feeds), hemid, hpge, gtlurl))
+            self.mlogger.debug(
+                'WbGTlCmp fgrouptlpage=====>gid:{},rcode:{},feedslen:{},hemid:{},hpage:{},gtlurl:{}'.format(
+                    gid, rcode, len(feeds), hemid, hpge, gtlurl))
         return hemid, hpge, feeds
 
     def fgroupstl(self):
         gtlmaxmid = wbmon.getgtlmaxmid()
         for gid in dbc.TLGIDS:
-            print(gid, '==', gtlmaxmid.get(gid, ''))
-            # fgweibo.fgrouptl(gid, maxmid=int(gsmmid.get(gid, '0')))
+            self.fgrouptl(gid, endsmid=int(gtlmaxmid.get(gid, '')))
 
     def fgrouptl(self, gid, stasmid='', endsmid='', endday=''):
         if not endday:
             endday = cald.getdaystr(cald.calmonths(x=12))
         gtlurl = 'https://weibo.com/aj/mblog/fsearch?gid={}&_rnd={}'.format(gid, cald.gettimestamp())
-        # if hisp:
-        #     gtlurl = 'https://weibo.com/aj/mblog/fsearch?{}&end_id={}&min_id={}&gid={}&__rnd={}'.format(
-        #         hisp['page'], hisp['emid'], hisp['mmid'], gid, cald.gettimestamp())
-        hemid, hpge, feeds = self.__fgrouptlpage(gid, gtlurl)
-        bkdict, doclist, ctlist = TLFeedAly.alygtlfeeds(feeds, stasmid, endsmid, endday)
+        hemid = '0'
+        hpge = '1'
+        hmmid = '0'
+        while hemid and hpge and hmmid:
+            hsleeptime = random.randint(4, 24)
+            hsleeptime = round(hsleeptime * 0.1, 1)
+            time.sleep(hsleeptime)
+            hemid, hpge, feeds = self.__fgrouptlpage(gid, gtlurl)
+            hmmid, bkdict, doclist, ctlist, exdoms = TLFeedAly.alygtlfeeds(feeds, stasmid, endsmid, endday)
+            for doc in doclist:
+                try:
+                    wbmon.savedoc(gid, doc)
+                    if len(doc['files']) > 0:
+                        pass
+                        # PWeiBo.downfexecutor.submit(PWeiBo.downtlmedia, self, mid)
+                except Exception as ex:
+                    self.mlogger.error('fgrouptl savedetail error:ex:{},gid{},mid:{},curl:{}'.format(
+                        str(ex), gid, doc['mid'], doc['curl']))
+            gtlurl = 'https://weibo.com/aj/mblog/fsearch?{}&end_id={}&min_id={}&gid={}&__rnd={}'.format(
+                hpge, hemid, hmmid, gid, cald.gettimestamp())
 
 
 if __name__ == '__main__':

@@ -18,11 +18,23 @@ def getMongoWDb():
 def getgtlmaxmid():
     conn, wdb, coll = getMongoWDb()
     try:
-        results = coll.aggregate([{'$match': {'cday': {'$gt': '20190809'}}}, {'$group': {'_id': "$gid", 'maxmid': {'$max': "$smid"}}}])
+        results = coll.aggregate(
+            [{'$match': {'cday': {'$gt': '20190809'}}}, {'$group': {'_id': "$gid", 'maxmid': {'$max': "$smid"}}}])
         gtlmaxmid = {}
         for res in results:
             gtlmaxmid[res['_id']] = res['maxmid']
         return gtlmaxmid
+    except Exception as mex:
+        raise mex
+    finally:
+        conn.close()
+
+
+def getgpbymid(mid):
+    conn, wdb, coll = getMongoWDb()
+    try:
+        result = coll.find_one({'mid': mid})
+        return result
     except Exception as mex:
         raise mex
     finally:
@@ -58,17 +70,6 @@ def getmbmaxminmid(muid, maxy):
                 minmid = '-1'
             break
         return maxmid, minmid
-    except Exception as mex:
-        raise mex
-    finally:
-        conn.close()
-
-
-def getgpbymid(mid):
-    conn, wdb, coll = getMongoWDb()
-    try:
-        result = coll.find_one({'mid': mid})
-        return result
     except Exception as mex:
         raise mex
     finally:
@@ -124,6 +125,36 @@ def udpgpfwdmedia(mid, field, val):
     conn, wdb, coll = getMongoWDb()
     try:
         coll.update_one({'mid': mid}, {'$set': {field: val}})
+    except Exception as mex:
+        raise mex
+    finally:
+        conn.close()
+
+
+def savedoc(gid, doc, tlsrc='gtl'):
+    doc['gid'] = gid
+    doc['tlsrc'] = tlsrc
+    fwdhsave = doc['fwdhsave']
+    if fwdhsave is None:
+        del doc['fwdhsave']
+        del doc['fwdmid']
+        del doc['fwddoc']
+        del doc['fwdtext']
+        del doc['fwdmedia']
+    else:
+        fwddoc = doc['fwddoc']
+        doc['fwdmid'] = fwddoc['mid']
+        doc['fwdtext'] = fwddoc['ctext']
+        fmedia = fwddoc['media']
+        if len(fmedia) > 0:
+            doc['fwdmedia'] = fmedia
+        else:
+            del doc['fwdmedia']
+        del fwddoc['ctext']
+        del fwddoc['media']
+    conn, wdb, coll = getMongoWDb()
+    try:
+        coll.insert_one(doc)
     except Exception as mex:
         raise mex
     finally:

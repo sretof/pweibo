@@ -136,6 +136,16 @@ class WbComp:
             raise WbCompError(rcode, url, text)
         return rcode, text
 
+    @staticmethod
+    def fillwbhref(furl):
+        if furl.startswith('//'):
+            furl = 'https:' + furl
+        elif furl.startswith('/'):
+            furl = 'https://weibo.com' + furl
+        elif furl.startswith('http'):
+            pass
+        return furl
+
     def login(self, ouuid=''):
         self.wblock.acquire()
         if ouuid and ouuid != self.wbuuid:

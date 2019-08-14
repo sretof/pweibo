@@ -523,7 +523,7 @@ from pymongo import MongoClient
     #         spb = spa.split('=', 1)
     #         if len(spb) > 1 and spb[0] in args:
     #             rmap[spb[0]] = spb[1]
-    #     return rmap
+    #     return rmapgetdetailtxt
     #
     # @staticmethod
     # def fillwbhref(furl):

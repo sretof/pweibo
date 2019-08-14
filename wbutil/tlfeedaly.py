@@ -5,6 +5,7 @@ __author__ = 'Erik YU'
 import re
 
 import conf.db as dbc
+from wbutil.tldetailaly import TLDetailAly
 
 
 class TLFeedAly:
@@ -48,34 +49,62 @@ class TLFeedAly:
         ctlist = []
         doclist = []
         bkdict = {}
+        exdoms = []
+        hmmid = ''
         for feed in feeds:
-            try:
-                mid, uid, ruid, detail = TLFeedAly.alyfeedinfo(feed)
-                if detail is None or not mid or not uid:
-                    ctlist.append({'type': 11, 'mid': mid, 'feed': str(feed)})
-                    continue
-                curl, uname, ctime = TLFeedAly.alydetailinfo(feed)
-                if not curl or not ctime:
-                    ctlist.append({'type': 12, 'mid': mid, 'feed': str(feed)})
-                    continue
-                if TLFeedAly.isad(curl):
-                    ctlist.append({'type': 13, 'mid': mid, 'feed': str(feed)})
-                    continue
-                cday = ctime[0:4] + ctime[5:7] + ctime[8:10]
-                smid = cday + smid
-                if smid >= stasmid:
-                    ctlist.append({'type': 21, 'mid': mid, 'smid': smid, 'stasmid': stasmid})
-                    continue
-                if smid <= endsmid:
-                    bkdict = {'type': 61, 'mid': mid, 'smid': smid, 'endsmid': endsmid}
-                    break
-                if cday < endday:
-                    bkdict = {'type': 62, 'mid': mid, 'smid': smid, 'cday': cday}
-                    break
-            except Exception as fex:
-                pass
-        return bkdict, doclist, ctlist
+            mid, uid, ruid, detail = TLFeedAly.alyfeedinfo(feed)
+            if detail is None or not mid or not uid:
+                ctlist.append({'type': 11, 'mid': mid, 'feed': str(feed)})
+                continue
+            curl, uname, ctime = TLFeedAly.alydetailinfo(feed)
+            if not curl or not ctime:
+                ctlist.append({'type': 12, 'mid': mid, 'feed': str(feed)})
+                continue
+            if TLFeedAly.isad(curl):
+                ctlist.append({'type': 13, 'mid': mid, 'feed': str(feed)})
+                continue
+            cday = ctime[0:4] + ctime[5:7] + ctime[8:10]
+            smid = cday + mid
+            if stasmid and smid >= stasmid:
+                ctlist.append({'type': 21, 'mid': mid, 'smid': smid, 'stasmid': stasmid})
+                continue
+            if endsmid and smid <= endsmid:
+                bkdict = {'type': 61, 'mid': mid, 'smid': smid, 'endsmid': endsmid}
+                hmmid = ''
+                break
+            if endday and cday < endday:
+                bkdict = {'type': 62, 'mid': mid, 'smid': smid, 'cday': cday}
+                hmmid = ''
+                break
+            hmmid = mid
+            # txt div
+            txt, mtype, files, skipdoms = TLDetailAly.getdetailtxt(TLFeedAly.seltxtdiv(feed))
+            # media div
+            mtype, files, skipdoms = TLDetailAly.getdetailmedia(TLFeedAly.selmediadiv(feed), uid, mid,
+                                                                mtype, files, skipdoms)
+            # fwd div
+            mtype, fwdhsave, fwdmid, fwddoc, fskipdoms = TLDetailAly.getfwddoc(TLFeedAly.selfwddiv(feed), mtype)
+            if len(skipdoms) > 0 or len(fskipdoms) > 0:
+                exdom = {'mid': mid}
+                if len(skipdoms) > 0:
+                    exdom['exdom'] = skipdoms
+                if len(fskipdoms) > 0:
+                    exdom['fexdom'] = fskipdoms
+                exdoms.append(exdom)
+            doc = {'uid': uid, 'uname': uname, 'mid': mid, 'mtype': mtype, 'curl': curl, 'cttime': ctime,
+                   'cday': cday, 'txt': txt, 'files': files, 'fwdhsave': fwdhsave, 'fwdmid': fwdmid,
+                   'fwddoc': fwddoc}
+            doclist.append(doc)
+        return hmmid, bkdict, doclist, ctlist, exdoms
 
     @staticmethod
     def seltxtdiv(feed):
         return feed.select_one('div.WB_detail > div.WB_text.W_f14')
+
+    @staticmethod
+    def selmediadiv(feed):
+        return feed.select_one('div.WB_detail > div.WB_media_wrap > div.media_box')
+
+    @staticmethod
+    def selfwddiv(feed):
+        return feed.select_one('div.WB_detail > div.WB_feed_expand > div.WB_expand')
