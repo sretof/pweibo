@@ -74,7 +74,7 @@ class WbGTlCmp:
         #     gtlurl = 'https://weibo.com/aj/mblog/fsearch?{}&end_id={}&min_id={}&gid={}&__rnd={}'.format(
         #         hisp['page'], hisp['emid'], hisp['mmid'], gid, cald.gettimestamp())
         hemid, hpge, feeds = self.__fgrouptlpage(gid, gtlurl)
-        hmmid = TLFeedAly.alygtlfeeds(feeds, stasmid, endsmid, endday)
+        bkdict, doclist, ctlist = TLFeedAly.alygtlfeeds(feeds, stasmid, endsmid, endday)
 
 
 if __name__ == '__main__':

@@ -45,26 +45,26 @@ class TLFeedAly:
 
     @staticmethod
     def alygtlfeeds(feeds, stasmid, endsmid, endday):
-        contlist = []
+        ctlist = []
         doclist = []
         bkdict = {}
         for feed in feeds:
             try:
                 mid, uid, ruid, detail = TLFeedAly.alyfeedinfo(feed)
                 if detail is None or not mid or not uid:
-                    contlist.append({'type': 11, 'mid': mid, 'feed': str(feed)})
+                    ctlist.append({'type': 11, 'mid': mid, 'feed': str(feed)})
                     continue
                 curl, uname, ctime = TLFeedAly.alydetailinfo(feed)
                 if not curl or not ctime:
-                    contlist.append({'type': 12, 'mid': mid, 'feed': str(feed)})
+                    ctlist.append({'type': 12, 'mid': mid, 'feed': str(feed)})
                     continue
                 if TLFeedAly.isad(curl):
-                    contlist.append({'type': 13, 'mid': mid, 'feed': str(feed)})
+                    ctlist.append({'type': 13, 'mid': mid, 'feed': str(feed)})
                     continue
                 cday = ctime[0:4] + ctime[5:7] + ctime[8:10]
                 smid = cday + smid
                 if smid >= stasmid:
-                    contlist.append({'type': 21, 'mid': mid, 'smid': smid, 'stasmid': stasmid})
+                    ctlist.append({'type': 21, 'mid': mid, 'smid': smid, 'stasmid': stasmid})
                     continue
                 if smid <= endsmid:
                     bkdict = {'type': 61, 'mid': mid, 'smid': smid, 'endsmid': endsmid}
@@ -74,4 +74,8 @@ class TLFeedAly:
                     break
             except Exception as fex:
                 pass
-        return bkdict, doclist, contlist
+        return bkdict, doclist, ctlist
+
+    @staticmethod
+    def seltxtdiv(feed):
+        return feed.select_one('div.WB_detail > div.WB_text.W_f14')
