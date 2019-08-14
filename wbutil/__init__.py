@@ -1,2 +1,3 @@
+from wbutil.tlfeedaly import TLFeedAly
 from wbutil.wbcomp import WbComp
-from wbutil.tlfeedinf import TLFeedInf
+from wbutil.wbex import WbCompError

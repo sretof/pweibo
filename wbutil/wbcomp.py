@@ -1,4 +1,6 @@
-# -*- coding:utf-8 -*-
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+__author__ = 'Erik YU'
 import base64
 import logging
 import random
@@ -15,6 +17,7 @@ import urllib3
 
 import util.caldate as cald
 import util.tulog as logger
+from wbutil.wbex import WbCompError
 
 urllib3.disable_warnings()  # 取消警告
 
@@ -34,6 +37,7 @@ class WbComp:
         self.wbuuid = ''
 
     def __presession(self):
+        self.wbuuid = ''
         self.session = requests.session()  # 登录用session
         self.session.headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3770.100 Safari/537.36'
@@ -103,11 +107,34 @@ class WbComp:
         if uid:
             self.wbuid = uid
             self.wbuuid = str(uuid.uuid1()).replace('-', '')
-            self.mlogger.info('=============login success=============>wbuid:{},wbuuid:{}'.format(self.wbuid, self.wbuuid))
         # home_url = 'https://weibo.com/u/{}/home?wvr=5&lf=reg'.format(uid)  # 请求首页
         # html = self.session.get(home_url, timeout=(30, 60))
         # html.encoding = 'utf-8'
         # print(html.text)
+
+    def __gethtml(self, url, ctype, timeout, allow_redirects):
+        if not self.wbuid:
+            raise WbCompError(999, url)
+        headers = {}
+        if ctype == 'chat':
+            headers['Referer'] = 'https://api.weibo.com/chat/'
+        html = self.session.get(url, headers=headers, timeout=timeout, allow_redirects=allow_redirects)
+        rcode = html.status_code
+        html.encoding = 'utf-8'
+        text = html.text
+        html.close()
+        if rcode == 200:
+            fpg = r'<script>parent.window.location="https://weibo.com/sorry\?pagenotfound"</script>'
+            ftext = re.findall(fpg, text, re.S)
+            if len(ftext) > 0:
+                raise WbCompError(404, url, text)
+            if '你访问的页面地址有误' in text:
+                raise WbCompError(404, url, text)
+            if '违反' in text and '安全检测规则' in text:
+                raise WbCompError(9991, url, text)
+        elif rcode == 414 or rcode == 404:
+            raise WbCompError(rcode, url, text)
+        return rcode, text
 
     def login(self, ouuid=''):
         self.wblock.acquire()
@@ -124,6 +151,7 @@ class WbComp:
                 self.__login()
                 if self.wbuid:
                     success = True
+                    self.mlogger.info('WbComp login success=====>wbuid:{},wbuuid:{}'.format(self.wbuid, self.wbuuid))
                     break
                 else:
                     raise Exception('no pwuid')
@@ -134,28 +162,39 @@ class WbComp:
         if not success:
             raise rex
 
-    def refresh(self, ouuid):
+    def refresh(self, ouuid, slt=60):
+        time.sleep(slt)
         self.login(ouuid)
 
-    def gethtml(self, url, ctype='', timeout=(30, 60)):
-        try:
-            self.wblock.acquire()
-            self.wblock.release()
-            headers = {}
-            if ctype == 'chat':
-                headers['Referer'] = 'https://api.weibo.com/chat/'
-            if ctype == 'file':
-                timeout = (30, 300)
-            html = self.session.get(url, headers=headers, timeout=timeout)
-            rcode = html.status_code
-            text = ''
-            if rcode == 200:
-                html.encoding = 'utf-8'
-                text = html.text
-            html.close()
-            return rcode, text, None
-        except Exception as ghex:
-            return 599, '', ghex
+    def gethtml(self, url, ctype='', timeout=(30, 60), allow_redirects=True, rtry=3, refresh=False):
+        tyrcnt = 0
+        ouuid = self.wbuuid
+        while tyrcnt < rtry:
+            self.mlogger.info('WbComp gethtml=====>tyrcnt:{},url:{}'.format(tyrcnt, url))
+            tyrcnt = tyrcnt + 1
+            try:
+                self.wblock.acquire()
+                return self.__gethtml(url, ctype, timeout, allow_redirects)
+            except WbCompError as ghwex:
+                rex = ghwex
+                excode = ghwex.excode
+                if str(excode).startswith('999'):
+                    tyrcnt = rtry
+                    refresh = False
+                elif excode == 404 and tyrcnt < rtry - 1:
+                    tyrcnt = rtry - 1
+                elif excode == 414:
+                    time.sleep(60 * 4)
+            except Exception as ghex:
+                rex = ghex
+            finally:
+                self.wblock.release()
+            if tyrcnt >= rtry and refresh:
+                refresh = False
+                rtry = rtry * 2
+                self.refresh(ouuid)
+        self.mlogger.info('WbComp gethtml error=====>ex:{},url:{}'.format(str(rex), url))
+        raise rex
 
 
 if __name__ == '__main__':
@@ -163,6 +202,4 @@ if __name__ == '__main__':
     wbpw = '1122aaa'
     wbcomp = WbComp(wbun, wbpw)
     wbcomp.login()
-    ouid = wbcomp.wbuuid
-    wbcomp.refresh(ouid)
-    wbcomp.refresh(ouid)
+    wbcomp.gethtml('https://weibo.com/5705221157/HwfbzDytxcc', refresh=True)

@@ -18,7 +18,7 @@ def getMongoWDb():
 def getgtlmaxmid():
     conn, wdb, coll = getMongoWDb()
     try:
-        results = coll.aggregate([{'$match': {'cday': {'$gt': '20190809'}}}, {'$group': {'_id': "$gid", 'maxmid': {'$max': "$mid"}}}])
+        results = coll.aggregate([{'$match': {'cday': {'$gt': '20190809'}}}, {'$group': {'_id': "$gid", 'maxmid': {'$max': "$smid"}}}])
         gtlmaxmid = {}
         for res in results:
             gtlmaxmid[res['_id']] = res['maxmid']

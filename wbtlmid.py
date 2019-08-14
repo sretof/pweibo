@@ -1183,6 +1183,7 @@ def updateMidT(doc, rcnt=0):
     cturl = doc['cturl']
     nmid = ''
     smid = ''
+    rcode = ''
     if 'smid' in doc:
         pass
     elif not isinstance(mid, int) and len(mid) == 16 and mid.startswith('4'):
@@ -1222,7 +1223,7 @@ def updateMidT(doc, rcnt=0):
 
 def updateMid():
     conn, wdb = getMongoWDb()
-    executor = ThreadPoolExecutor(max_workers=2)
+    # executor = ThreadPoolExecutor(max_workers=2)
     try:
         coll = wdb[PWeiBo.MGOCTCOLL]
         result = coll.find({'smid': {'$exists': False}}).sort('cday', -1)
@@ -1230,7 +1231,7 @@ def updateMid():
         # result = coll.find({'mid': '1701333050'})
         OPWEIBOLOGIN()
         for doc in result:
-            executor.submit(updateMidT, doc)
+            updateMidT(doc)
     except Exception as mex:
         raise mex
     finally:
