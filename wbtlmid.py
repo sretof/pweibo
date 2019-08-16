@@ -1226,12 +1226,15 @@ def updateMid():
     # executor = ThreadPoolExecutor(max_workers=2)
     try:
         coll = wdb[PWeiBo.MGOCTCOLL]
-        result = coll.find({'smid': {'$exists': False}}).sort('cday', -1)
+        result = coll.find({'smid': {'$exists': False}}).sort('cday', -1).limit(1000)
         # 1701333050
         # result = coll.find({'mid': '1701333050'})
         OPWEIBOLOGIN()
+        dn = 0
         for doc in result:
+            dn = dn + 1
             updateMidT(doc)
+        return dn
     except Exception as mex:
         raise mex
     finally:
@@ -1239,7 +1242,13 @@ def updateMid():
 
 
 if __name__ == '__main__':
-    updateMid()
+    rdn = 1
+    while rdn > 0:
+        try:
+            rdn = updateMid()
+        except Exception as uex:
+            print(str(uex))
+            rdn = 1
     # OPWEIBOLOGIN()
     # cturl = 'https://weibo.com/2043878715/I0JRZjNof'
     # rcode, nmid = PWeiBo.directfpage(OPWEIBO, cturl)

@@ -14,6 +14,15 @@ class WbCompError(Exception):
         return 'WbCompError Code:{},Gurl:{}'.format(self.excode, self.gurl)
 
 
+class WbMonNoneDocError(Exception):
+    def __init__(self, mid):
+        self.mid = mid
+        super().__init__(self)
+
+    def __str__(self):
+        return 'WbMonNoneDocError mid:{}'.format(self.mid)
+
+
 if __name__ == '__main__':
-    wbe = WbCompError('404','aaaaa')
+    wbe = WbMonNoneDocError('1')
     print(wbe)

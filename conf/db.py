@@ -18,3 +18,7 @@ MGOCTCOLL = 'Contents'
 ADURL = ('tui.weibo',)
 TLGIDS = ('3653960185837784', '3909747545351455', '4198223948149624', '4005405388023195', '3951063348253369')
 NDIMGCLS = ('W_img_statistics', 'W_face_radius')
+
+# WB
+WBUN = 'sretof@live.cn'
+WBPW = '1122aaa'

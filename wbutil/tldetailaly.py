@@ -3,13 +3,10 @@
 __author__ = 'Erik YU'
 
 import re
-
-import conf.db as dbc
 import uuid
 from urllib.parse import unquote
 
 import wbutil.wbmon as wbmon
-
 from wbutil.wbcomp import WbComp
 
 
@@ -26,10 +23,15 @@ class TLDetailAly:
         return unquote(psv)
 
     @staticmethod
-    def getdetailtxt(txtdiv, mtype='0', files=[], skipdoms=[]):
+    def getdetailtxt(txtdiv, mtype='0', files=None, skipdoms=None):
+        if files is None:
+            files = []
+        if skipdoms is None:
+            skipdoms = []
         adoms = txtdiv.select('a')
         idoms = txtdiv.select('img')
         txtsuf = ''
+        txtstock = ''
         for adom in adoms:
             fauuid = ''.join(str(uuid.uuid1()).split('-'))
             if adom.get('render', '') == 'ext':
@@ -43,6 +45,9 @@ class TLDetailAly:
                 if furl:
                     file = {'url': furl, 'hasd': 0, 'mtype': mtype, 'fid': fauuid}
                     files.append(file)
+            elif 'stock' in adom.get('suda-uatrack', ''):
+                furl = adom.get('href', '')
+                txtstock = '[' + WbComp.fillwbhref(furl) + ']'
             elif adom.get('action-type', '') == 'feed_list_url':
                 lidom = adom.select_one('i.ficon_cd_link')
                 vidom = adom.select_one('i.ficon_cd_video')
@@ -81,10 +86,16 @@ class TLDetailAly:
         txt = txtdiv.text.strip()
         if txtsuf:
             txt = txt + '//face:' + txtsuf
+        if txtstock:
+            txt = txtstock + txt
         return txt, mtype, files, skipdoms
 
     @staticmethod
     def getdetailmedia(mediadiv, uid, mid, mtype, files, skipdoms):
+        if files is None:
+            files = []
+        if skipdoms is None:
+            skipdoms = []
         if mediadiv is None:
             return mtype, files, skipdoms
         fmuuid = ''.join(str(uuid.uuid1()).split('-'))
@@ -185,4 +196,5 @@ class TLDetailAly:
                         'uid': fsdt.get('uid', ''),
                         'uname': fsdt.get('uname', ''), 'mtype': fsdt.get('mtype', ''),
                         'media': fsdt.get('media', [])}
+            fskipdoms = []
         return mtype, fwdhsave, fwdmid, retfwdoc, fskipdoms

@@ -53,6 +53,22 @@ def ckanddelhismbmid(mid):
         return 1
 
 
+def hasdownmedia(mid, fid, locpath):
+    conn, wdb, coll = getMongoWDb()
+    try:
+        if locpath == '404':
+            # pass
+            coll.update_one({'mid': mid, 'media.fid': fid}, {'$set': {'media.$.hasd': 1, 'media.$.mtype': locpath}})
+        else:
+            coll.update_one({'mid': mid, 'media.fid': fid}, {'$set': {'media.$.hasd': 1, 'media.$.locpath': locpath}})
+    except Exception as mex:
+        raise mex
+    finally:
+        conn.close()
+
+
+################
+
 def getmbmaxminmid(muid, maxy):
     conn, wdb, coll = getMongoWDb()
     try:
@@ -107,20 +123,6 @@ def udpgpdetail(mid, field, val):
         conn.close()
 
 
-def udpgpmedia(mid, fid, locpath):
-    conn, wdb, coll = getMongoWDb()
-    try:
-        if locpath == '404':
-            # pass
-            coll.update_one({'mid': mid, 'media.fid': fid}, {'$set': {'media.$.hasd': 1, 'media.$.mtype': locpath}})
-        else:
-            coll.update_one({'mid': mid, 'media.fid': fid}, {'$set': {'media.$.hasd': 1, 'media.$.locpath': locpath}})
-    except Exception as mex:
-        raise mex
-    finally:
-        conn.close()
-
-
 def udpgpfwdmedia(mid, field, val):
     conn, wdb, coll = getMongoWDb()
     try:
@@ -132,26 +134,23 @@ def udpgpfwdmedia(mid, field, val):
 
 
 def savedoc(gid, doc, tlsrc='gtl'):
-    doc['gid'] = gid
-    doc['tlsrc'] = tlsrc
-    fwdhsave = doc['fwdhsave']
-    if fwdhsave is None:
+    if doc['fwdhsave'] is None:
         del doc['fwdhsave']
         del doc['fwdmid']
         del doc['fwddoc']
-        del doc['fwdtext']
-        del doc['fwdmedia']
     else:
         fwddoc = doc['fwddoc']
-        doc['fwdmid'] = fwddoc['mid']
         doc['fwdtext'] = fwddoc['ctext']
         fmedia = fwddoc['media']
         if len(fmedia) > 0:
             doc['fwdmedia'] = fmedia
-        else:
-            del doc['fwdmedia']
         del fwddoc['ctext']
         del fwddoc['media']
+    doc = dict({'gid': gid}, **doc)
+    doc['fday'] = cald.getdaystr()
+    doc['ftime'] = cald.now()
+    doc['smid'] = doc['cday'] + doc['mid']
+    doc['tlsrc'] = tlsrc
     conn, wdb, coll = getMongoWDb()
     try:
         coll.insert_one(doc)

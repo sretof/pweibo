@@ -54,11 +54,11 @@ class TLFeedAly:
         for feed in feeds:
             mid, uid, ruid, detail = TLFeedAly.alyfeedinfo(feed)
             if detail is None or not mid or not uid:
-                ctlist.append({'type': 11, 'mid': mid, 'feed': str(feed)})
+                exdoms.append({'type': 11, 'mid': mid, 'feed': str(feed)})
                 continue
             curl, uname, ctime = TLFeedAly.alydetailinfo(feed)
             if not curl or not ctime:
-                ctlist.append({'type': 12, 'mid': mid, 'feed': str(feed)})
+                exdoms.append({'type': 12, 'mid': mid, 'feed': str(feed)})
                 continue
             if TLFeedAly.isad(curl):
                 ctlist.append({'type': 13, 'mid': mid, 'feed': str(feed)})
@@ -91,8 +91,8 @@ class TLFeedAly:
                 if len(fskipdoms) > 0:
                     exdom['fexdom'] = fskipdoms
                 exdoms.append(exdom)
-            doc = {'uid': uid, 'uname': uname, 'mid': mid, 'mtype': mtype, 'curl': curl, 'cttime': ctime,
-                   'cday': cday, 'txt': txt, 'files': files, 'fwdhsave': fwdhsave, 'fwdmid': fwdmid,
+            doc = {'uid': uid, 'uname': uname, 'mid': mid, 'mtype': mtype, 'cturl': curl, 'ctime': ctime,
+                   'cday': cday, 'ctext': txt, 'media': files, 'fwdhsave': fwdhsave, 'fwdmid': fwdmid,
                    'fwddoc': fwddoc}
             doclist.append(doc)
         return hmmid, bkdict, doclist, ctlist, exdoms

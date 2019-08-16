@@ -204,15 +204,16 @@ class PWeiBo():
         msgs = ['感谢大佬', '谢谢大佬', '谢谢大佬红包']
         success = 0
         slt = 0
-        if '生日' in ct or '寿星' in ct:
+        nhour = datetime.datetime.now().hour
+        if '生日' in ct or '寿星' in ct or nhour > 21 or nhour < 10:
             pass
         else:
             if buid == '6400215263' or buid == PWeiBo.MYWBUID:
-                slt = random.randint(4, 16)
+                slt = random.randint(1, 9)
             elif buid == '1413018413':
-                slt = random.randint(16, 32)
+                slt = random.randint(4, 32)
             else:
-                slt = random.randint(16, 128)
+                slt = random.randint(4, 128)
             slt = round(slt * 0.1, 1)
             time.sleep(slt)
             html = pweibo.session.get(hburl, timeout=(30, 60))
@@ -489,9 +490,11 @@ if __name__ == '__main__':
             Gfcnt = 0
         finally:
             nhour = datetime.datetime.now().hour
-            sleeptime = random.randint(4, 24)
+            sleeptime = random.randint(10, 60 * 10)
+            if 12 < nhour < 16:
+                sleeptime = random.randint(4, 14)
             sleeptime = round(sleeptime * 0.1, 1)
-            if 0 <= nhour < 8:
+            if nhour > 21 or nhour < 8:
                 sleeptime = random.randint(60 * 30, 60 * 120)
             PWeiBo.GLOGGER.info('======sleep hour:{} sleep:{}'.format(nhour, sleeptime))
             time.sleep(sleeptime)
