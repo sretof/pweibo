@@ -13,6 +13,7 @@ NDBSCHEMA = "weibo"
 MGOHOST = "localhost"
 MGOWDB = "weibo"
 MGOCTCOLL = 'Contents'
+MGOCHATCOLL = 'ChatContents'
 
 # WBCONF
 ADURL = ('tui.weibo',)
@@ -22,3 +23,6 @@ NDIMGCLS = ('W_img_statistics', 'W_face_radius')
 # WB
 WBUN = 'sretof@live.cn'
 WBPW = '1122aaa'
+
+# CHAT
+CHATGIDS = ('4305987512698522',)

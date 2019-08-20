@@ -15,6 +15,13 @@ def getMongoWDb():
     return conn, wdb, coll
 
 
+def getMongoWChatDb():
+    conn = MongoClient(dbc.MGOHOST, 27017)
+    wdb = conn[dbc.MGOWDB]
+    coll = wdb[dbc.MGOCHATCOLL]
+    return conn, wdb, coll
+
+
 def getgtlmaxmid():
     conn, wdb, coll = getMongoWDb()
     try:
@@ -61,6 +68,68 @@ def hasdownmedia(mid, fid, locpath):
             coll.update_one({'mid': mid, 'media.fid': fid}, {'$set': {'media.$.hasd': 1, 'media.$.mtype': locpath}})
         else:
             coll.update_one({'mid': mid, 'media.fid': fid}, {'$set': {'media.$.hasd': 1, 'media.$.locpath': locpath}})
+    except Exception as mex:
+        raise mex
+    finally:
+        conn.close()
+
+
+def savedoc(gid, doc, tlsrc='gtl'):
+    if doc['fwdhsave'] is None:
+        del doc['fwdhsave']
+        del doc['fwdmid']
+        del doc['fwddoc']
+    else:
+        fwddoc = doc['fwddoc']
+        doc['fwdtext'] = fwddoc['ctext']
+        fmedia = fwddoc['media']
+        if len(fmedia) > 0:
+            doc['fwdmedia'] = fmedia
+        del fwddoc['ctext']
+        del fwddoc['media']
+    doc = dict({'gid': gid}, **doc)
+    doc['fday'] = cald.getdaystr()
+    doc['ftime'] = cald.now()
+    doc['smid'] = doc['cday'] + doc['mid']
+    doc['tlsrc'] = tlsrc
+    conn, wdb, coll = getMongoWDb()
+    try:
+        coll.insert_one(doc)
+    except Exception as mex:
+        raise mex
+    finally:
+        conn.close()
+
+
+################
+# CHAT
+################
+def savechatdata(mid, gid, buid, bn, cttype, ct, hd, fid, fpath, mtime):
+    doc = dict()
+    doc['gid'] = gid
+    doc['mid'] = mid
+    doc['buid'] = buid
+    doc['bn'] = bn
+    doc['cttype'] = cttype
+    doc['ct'] = ct
+    doc['hd'] = hd
+    doc['fid'] = fid
+    doc['fpath'] = fpath
+    doc['mday'] = mtime.strftime('%Y%m%d')
+    doc['mtime'] = mtime
+    doc['ftime'] = cald.now()
+    savechatdoc(doc)
+
+
+def savechatdoc(doc):
+    if 'id' in doc:
+        del doc['id']
+    if 'mdate' in doc:
+        doc['mday'] = doc['mdate']
+        del doc['mdate']
+    conn, wdb, coll = getMongoWChatDb()
+    try:
+        coll.insert_one(doc)
     except Exception as mex:
         raise mex
     finally:
@@ -127,33 +196,6 @@ def udpgpfwdmedia(mid, field, val):
     conn, wdb, coll = getMongoWDb()
     try:
         coll.update_one({'mid': mid}, {'$set': {field: val}})
-    except Exception as mex:
-        raise mex
-    finally:
-        conn.close()
-
-
-def savedoc(gid, doc, tlsrc='gtl'):
-    if doc['fwdhsave'] is None:
-        del doc['fwdhsave']
-        del doc['fwdmid']
-        del doc['fwddoc']
-    else:
-        fwddoc = doc['fwddoc']
-        doc['fwdtext'] = fwddoc['ctext']
-        fmedia = fwddoc['media']
-        if len(fmedia) > 0:
-            doc['fwdmedia'] = fmedia
-        del fwddoc['ctext']
-        del fwddoc['media']
-    doc = dict({'gid': gid}, **doc)
-    doc['fday'] = cald.getdaystr()
-    doc['ftime'] = cald.now()
-    doc['smid'] = doc['cday'] + doc['mid']
-    doc['tlsrc'] = tlsrc
-    conn, wdb, coll = getMongoWDb()
-    try:
-        coll.insert_one(doc)
     except Exception as mex:
         raise mex
     finally:

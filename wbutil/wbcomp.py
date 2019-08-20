@@ -249,6 +249,19 @@ class WbComp:
         self.mlogger.error('WbComp:gethtml error=====>ex:{},url:{}'.format(str(rex), url))
         raise rex
 
+    def postdata(self, url, data, ctype='', timeout=(30, 60)):
+        self.mlogger.debug('WbComp:postdata error=====>url:{}'.url)
+        try:
+            self.wblock.acquire()
+            self.wblock.release()
+            headers = {}
+            if ctype == 'chat':
+                headers['Referer'] = 'https://api.weibo.com/chat/'
+            self.session.post(url, data, timeout=timeout)
+            self.mlogger.debug('WbComp:postdata success=====>url:{}'.url)
+        except Exception as pex:
+            self.mlogger.error('WbComp:postdata error=====>ex:{},url:{}'.format(str(pex), url))
+
     def downmedia(self, mid, doc=None, fdir=None):
         gdoccnt = 0
         while gdoccnt < 1:

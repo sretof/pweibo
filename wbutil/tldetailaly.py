@@ -14,11 +14,16 @@ class TLDetailAly:
     @staticmethod
     def getvideosource(psv):
         psvs = psv.split('=http')
+        psv = ''
         if len(psvs) > 0:
             psvs.reverse()
             for p in psvs:
                 if 'ssig' in p and 'qType' in p:
                     psv = 'http' + p
+                    break
+                if 'youku' in p and 'qType' in p:
+                    sps = p.split('"')
+                    psv = 'http' + sps[0]
                     break
         return unquote(psv)
 
@@ -145,6 +150,9 @@ class TLDetailAly:
             if videoli is not None:
                 mtype = mtype + '22'
                 pvs = TLDetailAly.getvideosource(videoli['video-sources'])
+                if not pvs:
+                    skipdoms.append('getdetailmedia media_box vssource null?{}'.format(videoli['video-sources']))
+                    pvs = videoli['video-sources']
                 vfuid = ''.join(str(uuid.uuid1()).split('-'))
                 file = {'url': pvs, 'hasd': 0, 'mtype': '22', 'fid': vfuid}
                 files.append(file)
@@ -198,3 +206,14 @@ class TLDetailAly:
                         'media': fsdt.get('media', [])}
             fskipdoms = []
         return mtype, fwdhsave, fwdmid, retfwdoc, fskipdoms
+
+
+if __name__ == '__main__':
+    vsurl = 'fluency=https%253A%252F%252Fapi.youku.com%252Fvideos%252Fplayer%252Ffile%253Fdata%253DWcEl1o6uUdTJOVFUzT1RnMU5nPT18MHwxfDEwMDUwfDAO0O0O&amp;480=' \
+            'https%3A%2F%2Fapi.youku.com%2Fvideos%2Fplayer%2Ffile%3Fdata%3DWcEl1o6uUdTJOVFUzT1RnMU5nPT18MHwwfDEwMDUwfDAO0O0O&amp;720=&amp;qType=480' \
+            '" action-data="type=feedvideo&amp;objectid=1007002:4407121391878427&amp;keys=4407121394270612&amp;' \
+            'video_src=https%3A%2F%2Fapi.youku.com%2Fvideos%2Fplayer%2Ffile%3Fdata%3DWcEl1o6uUdTJOVFUzT1RnMU5nPT18MHwxfDEwMDUwfDAO0O0O&amp;cover_img' \
+            '=https%3A%2F%2Fvthumb.ykimg.com%2F054101015AAA14EF8B3C46AAC91B7D9E&amp;card_height=540&amp;card_width=960&amp;play_count=5506&amp;duration=390&amp;short_url' \
+            '=http%3A%2F%2Ft.cn%2FAiQ4tfcc%3Fm%3D4407121392845445%26u%3D1807436544&amp;encode_mode=&amp;bitrate=&amp;biz_id=231193&amp;current_mid=4407121392845445&amp;video_orientation=horizontal'
+    print(TLDetailAly.getvideosource(vsurl))
+    print('===', unquote(''))
