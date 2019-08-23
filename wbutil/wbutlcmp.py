@@ -5,6 +5,7 @@ import json
 import logging
 import random
 import re
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 
@@ -16,17 +17,18 @@ import util.tulog as logger
 import wbutil.wbmon as wbmon
 from wbutil import TLFeedAly
 from wbutil import WbComp
-from wbutil.tldetailaly import TLDetailAly
 
 
-class WbGTlCmp:
+class WbUTlCmp:
     def __init__(self, wbcomp, mlogger=None):
         if mlogger is None:
-            mlogger = logger.TuLog('wbgtlcmp', '/log', True, logging.INFO).getlog()
+            mlogger = logger.TuLog('wbutlcmp', '/log', True, logging.INFO).getlog()
         self.wbcomp = wbcomp
         self.mlogger = mlogger
         self.downfexecutor = ThreadPoolExecutor(max_workers=1)
         self.vdownfexecutor = ThreadPoolExecutor(max_workers=2)
+        self.gudictlock = threading.Lock()
+        self.gudict = {}
 
     @staticmethod
     def alygtlpageinfo(paged):
@@ -45,6 +47,46 @@ class WbGTlCmp:
         feeds = paged.select('div.WB_cardwrap[tbinfo]')
         return hemid, hpge, feeds
 
+    def fgumidexist(self, gid, muid):
+        for cgid in dbc.TLGIDS:
+            if cgid == gid:
+                break
+            if cgid in self.gudict and muid in self.gudict[cgid]:
+                return True
+        return False
+
+    def __fgroupuids(self, gid):
+        if gid not in self.gudict:
+            self.gudict[gid] = []
+        self.gudict[gid] = []
+        href = 'https://weibo.com/1795005665/myfollow?gid={}'.format(gid)
+        while href:
+            self.mlogger.debug('WbUTlCmp:__fgroupuids gid:{},href:{}'.format(gid, href))
+            text = self.wbcomp.gethtml(href)[1]
+            rpg = r'<script>FM\.view\({"ns":"pl\.relation\.myFollow\.index",(.*?)\)</script>'
+            jtext = re.findall(rpg, text, re.S)
+            jtext = '{' + jtext[0]
+            ptext = json.loads(jtext)
+            thtml = ptext['html']
+            soup = BeautifulSoup(thtml, 'lxml')
+            uidlis = soup.select('div.member_box > ul.member_ul > li.member_li[action-data]')
+            for uidli in uidlis:
+                acd = uidli['action-data']
+                mumap = WbComp.splitacd(acd, 'uid', 'screen_name')
+                if 'uid' not in mumap:
+                    self.mlogger.warning('WbUTlCmp:__fgroupuids uid none uidli:{}'.format(str(uidli)))
+                    continue
+                elif self.fgumidexist(gid, mumap['uid']):
+                    self.mlogger.warning('WbUTlCmp:__fgroupuids uid exist uid:{},uname:{}'.format(mumap['uid'], mumap['screen_name']))
+                    continue
+                else:
+                    self.gudict[gid].append(mumap['uid'])
+            npa = soup.select_one('div.WB_cardpage > div.W_pages a.page.next')
+            if npa is not None and npa.get('href', ''):
+                href = WbComp.fillwbhref(npa['href'])
+            else:
+                href = ''
+
     def __fgrouptlpage(self, gtlurl):
         hemid = ''
         hpge = {}
@@ -56,7 +98,7 @@ class WbGTlCmp:
             if rcode == 200:
                 tjson = json.loads(text)
                 gpsoup = BeautifulSoup(tjson['data'], 'lxml')
-                hemid, hpge, feeds = WbGTlCmp.alygtlpageinfo(gpsoup)
+                hemid, hpge, feeds = WbUTlCmp.alygtlpageinfo(gpsoup)
             else:
                 raise Exception('rcode EX')
         except Exception as fpex:
@@ -121,10 +163,15 @@ class WbGTlCmp:
                     self.mlogger.debug('WbGTlCmp:fgrouptl:alygtlfeeds continue;gid:{},ctlist:{},url:{}'.format(gid, ctlist, gtlurl))
                 for doc in doclist:
                     try:
-                        hasvideo = TLDetailAly.chkandudpmediamtype(gid, doc)
                         wbmon.savedoc(gid, doc)
                         docct = docct + 1
                         if len(doc['media']) > 0:
+                            hasvideo = False
+                            for amd in doc['media']:
+                                amtype = amd['mtype']
+                                if amtype == '22' or amtype == '23':
+                                    hasvideo = True
+                                    break
                             if hasvideo:
                                 self.vdownfexecutor.submit(self.wbcomp.downmedia, doc['mid'])
                             else:
@@ -138,14 +185,25 @@ class WbGTlCmp:
                     hpge, hemid, hmmid, gid, cald.gettimestamp())
         return docct
 
+    def fgroupsuids(self):
+        self.mlogger.debug('WbUTlCmp:fgroupsuids START')
+        self.gudictlock.acquire()
+        for gid in dbc.TLGIDS:
+            self.mlogger.debug('WbUTlCmp:fgroupsuids START=====>gid:{}'.format(gid))
+            self.__fgroupuids(gid)
+            self.mlogger.debug('WbUTlCmp:fgroupsuids END=====>gid:{}'.format(gid))
+        self.gudictlock.release()
+        self.mlogger.debug('WbUTlCmp:fgroupsuids END=====>gudict:{}'.format(self.gudict))
+
 
 if __name__ == '__main__':
-    glogger = logger.TuLog('wbgtlcmp', '/../log', True, logging.DEBUG).getlog()
-    wglogger = logger.TuLog('wbcomp', '/../log', True, logging.DEBUG).getlog()
+    glogger = logger.TuLog('wbutlcmptest', '/log', True, logging.DEBUG).getlog()
+    wglogger = logger.TuLog('wbutlwbcomptest', '/log', True, logging.DEBUG).getlog()
     wbun = 'sretof@live.cn'
     wbpw = '1122aaa'
     owbcomp = WbComp(wbun, wbpw, wglogger)
     owbcomp.login()
-    gtlcmp = WbGTlCmp(owbcomp, glogger)
-    gtlcmp.fgroupstl()
+    utlcmp = WbUTlCmp(owbcomp, glogger)
+    utlcmp.fgroupsuids()
+    print(utlcmp.gudict)
     # gtlcmp.fgrouptl('3951063348253369', endsmid='201908154405578203590498')

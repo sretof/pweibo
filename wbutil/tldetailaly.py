@@ -12,6 +12,26 @@ from wbutil.wbcomp import WbComp
 
 class TLDetailAly:
     @staticmethod
+    def chkandudpmediamtype(gid, doc):
+        hasvideo = False
+        if len(doc['media']) > 0:
+            hasm13 = False
+            haspic = False
+            m13doc = {}
+            for amd in doc['media']:
+                amtype = amd['mtype']
+                if amtype == '13':
+                    hasm13 = True
+                    m13doc = amd
+                if amtype.endswith('21') or amtype.endswith('211'):
+                    haspic = True
+                if amtype == '22' or amtype == '23':
+                    hasvideo = True
+            if hasm13 and haspic and gid not in ['3653960185837784', '3909747545351455']:
+                m13doc['mtype'] = '1321'
+        return hasvideo
+
+    @staticmethod
     def getvideosource(psv):
         psvs = psv.split('=http')
         psv = ''
@@ -41,6 +61,8 @@ class TLDetailAly:
             fauuid = ''.join(str(uuid.uuid1()).split('-'))
             if adom.get('render', '') == 'ext':
                 pass
+            elif adom.get('action-type', '') == 'fl_url_addparams':
+                pass
             elif 'WB_text_opt' in adom.get('class', []):
                 mtype = '13'
                 furl = WbComp.fillwbhref(adom.get('href', ''))
@@ -53,10 +75,15 @@ class TLDetailAly:
             elif 'stock' in adom.get('suda-uatrack', ''):
                 furl = adom.get('href', '')
                 txtstock = '[' + WbComp.fillwbhref(furl) + ']'
+            elif adom.get('action-type', '') == 'widget_photoview':
+                furl = adom.get('short_url', '')
+                if furl:
+                    file = {'url': furl, 'hasd': 0, 'mtype': '211', 'fid': fauuid}
+                    files.append(file)
             elif adom.get('action-type', '') == 'feed_list_url':
                 lidom = adom.select_one('i.ficon_cd_link')
                 vidom = adom.select_one('i.ficon_cd_video')
-                wficon = adom.select_one('i.W_ficon')
+                title = adom.get('title', '')
                 hasd = 0
                 furl = adom.get('href', '')
                 amtype = '14'
@@ -65,23 +92,17 @@ class TLDetailAly:
                 elif vidom is not None:
                     hasd = 1
                     amtype = '22'
+                elif '抽奖' in title:
+                    hasd = 1
+                    amtype = '91'
                 elif lidom is not None:
                     mtype = '14'
-                elif wficon is not None:
-                    furl = ''
                 else:
                     furl = ''
                     skipdoms.append('getdetailtxt adom2 feed_list_url err dom?{}'.format(str(adom)))
                 if furl:
                     file = {'url': furl, 'hasd': hasd, 'mtype': amtype, 'fid': fauuid}
                     files.append(file)
-            elif adom.get('action-type', '') == 'widget_photoview':
-                furl = adom.get('short_url', '')
-                if furl:
-                    file = {'url': furl, 'hasd': 0, 'mtype': '211', 'fid': fauuid}
-                    files.append(file)
-            elif adom.get('action-type', '') == 'fl_url_addparams':
-                pass
             else:
                 skipdoms.append('getdetailtxt adom3 err dom?{}'.format(str(adom)))
         for idom in idoms:
@@ -129,6 +150,8 @@ class TLDetailAly:
             piclis = mediaul.select('li.WB_pic')
             if len(piclis) > 0:
                 mtype = mtype + '21'
+            # for file in files:
+            #     if file.mtype == '13' and
             for picli in piclis:
                 acdtxt = picli.get('action-data', '')
                 rpic = r'pid=(\w+)|pic_id=(\w+)'
@@ -194,7 +217,7 @@ class TLDetailAly:
             txtd = fwd.select_one('div.WB_text')
             fwdtxt, fmtype, ffiles, fskipdoms = TLDetailAly.getdetailtxt(txtd)
             mediad = fwd.select_one('div.WB_media_wrap > div.media_box')
-            mtype, files, fskipdoms = TLDetailAly.getdetailmedia(mediad, fuid, fwdmid, fmtype, ffiles, fskipdoms)
+            fmtype, ffiles, fskipdoms = TLDetailAly.getdetailmedia(mediad, fuid, fwdmid, fmtype, ffiles, fskipdoms)
             retfwdoc = {'mid': fwdmid, 'ctext': fwdtxt, 'cturl': fcurl, 'ctime': fctime, 'uid': fuid,
                         'uname': funame, 'mtype': fmtype, 'media': ffiles}
         else:
@@ -215,5 +238,15 @@ if __name__ == '__main__':
             'video_src=https%3A%2F%2Fapi.youku.com%2Fvideos%2Fplayer%2Ffile%3Fdata%3DWcEl1o6uUdTJOVFUzT1RnMU5nPT18MHwxfDEwMDUwfDAO0O0O&amp;cover_img' \
             '=https%3A%2F%2Fvthumb.ykimg.com%2F054101015AAA14EF8B3C46AAC91B7D9E&amp;card_height=540&amp;card_width=960&amp;play_count=5506&amp;duration=390&amp;short_url' \
             '=http%3A%2F%2Ft.cn%2FAiQ4tfcc%3Fm%3D4407121392845445%26u%3D1807436544&amp;encode_mode=&amp;bitrate=&amp;biz_id=231193&amp;current_mid=4407121392845445&amp;video_orientation=horizontal'
-    print(TLDetailAly.getvideosource(vsurl))
-    print('===', unquote(''))
+    # print(TLDetailAly.getvideosource(vsurl))
+    # print('===', unquote(''))
+
+    cmedia = []
+    mto = {'mtype': '13'}
+    mtp = {'mtype': '21'}
+    cmedia.append(mto)
+    cmedia.append(mtp)
+    tdoc = {'media': cmedia}
+    hasv = TLDetailAly.chkandudpmediamtype('1', tdoc)
+    print(hasv)
+    print(tdoc)

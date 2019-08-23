@@ -14,6 +14,17 @@ class WbCompError(Exception):
         return 'WbCompError Code:{},Gurl:{}'.format(self.excode, self.gurl)
 
 
+class WbCompDownError(Exception):
+    def __init__(self, excode, gurl='', htext=''):
+        self.excode = excode
+        self.gurl = gurl
+        self.htext = htext
+        super().__init__(self)
+
+    def __str__(self):
+        return 'WbCompError Code:{},Gurl:{}'.format(self.excode, self.gurl)
+
+
 class WbMonNoneDocError(Exception):
     def __init__(self, mid):
         self.mid = mid

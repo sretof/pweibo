@@ -22,6 +22,7 @@ import conf.db as dbc
 import util.caldate as cald
 import util.tulog as logger
 import wbutil.wbmon as wbmon
+from wbutil.wbex import WbCompDownError
 from wbutil.wbex import WbCompError
 from wbutil.wbex import WbMonNoneDocError
 
@@ -170,11 +171,25 @@ class WbComp:
             pass
         return furl
 
-    def login(self, ouuid=''):
+    @staticmethod
+    def splitacd(acd, *args):
+        rmap = {}
+        spas = acd.split('&')
+        for spa in spas:
+            spb = spa.split('=', 1)
+            if len(spb) > 1 and spb[0] in args:
+                rmap[spb[0]] = spb[1]
+        return rmap
+
+    def login(self, ouuid='', slt=0, lockwb=False):
+        if not lockwb and slt:
+            time.sleep(slt)
         self.wblock.acquire()
         if ouuid and ouuid != self.wbuuid:
             self.wblock.release()
             return
+        if lockwb and slt:
+            time.sleep(slt)
         self.__presession()
         tyrcnt = 0
         rex = None
@@ -196,9 +211,8 @@ class WbComp:
         if not success:
             raise rex
 
-    def refresh(self, ouuid, slt=60):
-        time.sleep(slt)
-        self.login(ouuid)
+    def refresh(self, ouuid, slt=60, lockwb=False):
+        self.login(ouuid, slt, lockwb)
 
     def getres(self, url, ctype='', timeout=(30, 60), allow_redirects=True, rtry=1, refresh=False):
         tyrcnt = 0
@@ -292,14 +306,15 @@ class WbComp:
             purl = media['url']
             fid = media['fid']
             self.mlogger.debug('WbComp:downmedia fid START=====>mid:{},fid:{},ftype:{}'.format(mid, fid, media['mtype']))
-            if media['mtype'] == '13' or media['mtype'] == '14' or media['mtype'] == '15':
-                locpath = self.downpage(mid, purl, fid, fdir, media['mtype'])
+            opttext = ''
+            if media['mtype'].startswith('13') or media['mtype'] == '14' or media['mtype'] == '15':
+                locpath, opttext = self.downpage(mid, purl, fid, fdir, media['mtype'])
             elif media['mtype'].endswith('21') or media['mtype'].endswith('211'):
                 locpath = self.downpic(mid, purl, fid, fdir)
             else:
                 locpath = self.downvideo(mid, purl, fid, fdir)
             if locpath:
-                wbmon.hasdownmedia(mid, fid, locpath)
+                wbmon.hasdownmedia(mid, fid, locpath, opttext)
             else:
                 locpath = ''
                 exmedias.append(fid)
@@ -331,15 +346,26 @@ class WbComp:
             raise dpiex
 
     def downpage(self, mid, src, fid, fdir, mtype='13'):
+        opttext = ''
         try:
             if mtype == '14' and 'weibo' not in src and 'sina' not in src:
-                html = requests.get(src, timeout=(30, 60))
-                html.encoding = 'utf-8'
-                text = html.text
-                html.close()
+                rres = requests.get(src, timeout=(30, 60), allow_redirects=False)
+                if rres.status_code == 302:
+                    rloc = rres.headers.get('Location', '')
+                    if 'weidian' in rloc:
+                        rres.close()
+                        raise WbCompDownError('14000', src, 'no need down')
+                    else:
+                        rres = requests.get(src, timeout=(30, 60))
+                if rres.status_code != 200:
+                    rres.close()
+                    raise WbCompDownError('14001', src, 'ex status_code'.format(rres.status_code))
+                rres.encoding = 'utf-8'
+                text = rres.text
+                rres.close()
             else:
                 text = self.gethtml(src, timeout=(30, 60), rtry=1)[1]
-            if mtype == '13':
+            if mtype.startswith('13'):
                 rpg = r'<script>FM\.view\({"ns":"pl\.content\.weiboDetail\.index",(.*?)\)</script>'
                 jtext = re.findall(rpg, text, re.S)
                 jtext = '{' + jtext[0]
@@ -409,8 +435,18 @@ class WbComp:
                     self.mlogger.error('WbComp:downpage:downpageimg EX2;mid:{},fid:{},murl:{},iurls:{}'.format(mid, fid, src, idomex2))
                 self.mlogger.debug('WbComp:downpage:downpageimg success;mid:{},fid:{},murl:{},iurls:{}'.format(mid, fid, src, idomdown))
             locpath = fdir + '\\' + mid + fid + '.html'
-            with open(locpath, 'w', encoding='utf-8') as f:
-                f.write(str(soup.html))
+            if mtype.startswith('13'):
+                dtxdiv = soup.select_one('div.WB_detail > div.WB_text')
+                if dtxdiv is not None:
+                    opttext = dtxdiv.text.strip()
+            if mtype != '1321':
+                with open(locpath, 'w', encoding='utf-8') as f:
+                    f.write(str(soup.html))
+            else:
+                locpath = '1321'
+        except WbCompDownError as wdex:
+            self.mlogger.error('WbComp:downpage EX0;mid:{},fid:{},ex:{},murl:{}'.format(mid, fid, str(wdex), src))
+            locpath = '404'
         except WbCompError as wex:
             self.mlogger.exception(wex)
             self.mlogger.error('WbComp:downpage EX1;mid:{},fid:{},ex:{},murl:{}'.format(mid, fid, str(wex), src))
@@ -419,30 +455,37 @@ class WbComp:
             self.mlogger.exception(ex)
             self.mlogger.error('WbComp:downpage EX2;mid:{},fid:{},ex:{},murl:{}'.format(mid, fid, str(ex), src))
             locpath = ''
-        return locpath
+        return locpath, opttext
 
     def downpic(self, mid, src, fid, fdir):
         try:
             text = self.gethtml(src, timeout=(30, 60), rtry=1)[1]
             soup = BeautifulSoup(text, 'lxml')
             imgd = soup.select_one('div.artwork > img')
-            imgurl = imgd['src']
-            ipreg = r'.+/(\w+)\.(\w+)'
-            rtext = re.findall(ipreg, imgurl, re.S)
-            fname = ''
-            if len(rtext) > 0 and len(rtext[0]) > 1:
-                fpf = rtext[0][0]
-                fsf = rtext[0][1]
-                if fpf != fid:
-                    fid = fid + fpf
-                fname = fid + '.' + fsf
-            if not fname:
-                raise Exception('pic fname is none;mid:{},fid:{},src:{}'.format(mid, fid, src))
-            res = self.getres(imgurl, timeout=(30, 300))
-            locpath = fdir + '\\' + mid + fname
-            img = res.content
-            with open(locpath, 'wb') as f:
-                f.write(img)
+            if imgd is not None:
+                imgurl = imgd['src']
+                ipreg = r'.+/(\w+)\.(\w+)'
+                rtext = re.findall(ipreg, imgurl, re.S)
+                fname = ''
+                if len(rtext) > 0 and len(rtext[0]) > 1:
+                    fpf = rtext[0][0]
+                    fsf = rtext[0][1]
+                    if fpf != fid:
+                        fid = fid + fpf
+                    fname = fid + '.' + fsf
+                if not fname:
+                    raise Exception('pic fname is none;mid:{},fid:{},src:{}'.format(mid, fid, src))
+                res = self.getres(imgurl, timeout=(30, 300))
+                locpath = fdir + '\\' + mid + fname
+                img = res.content
+                with open(locpath, 'wb') as f:
+                    f.write(img)
+            else:
+                imge = soup.select_one('div.m_error > img')
+                if imge is not None:
+                    locpath = '404'
+                else:
+                    raise Exception('WbComp:downpic EX:none img dom')
         except Exception as ex:
             locpath = ''
             self.mlogger.exception(ex)
@@ -480,9 +523,20 @@ class WbComp:
 
 
 if __name__ == '__main__':
-    glogger = logger.TuLog('wbgtlcmp', '/../log', True, logging.DEBUG).getlog()
+    glogger = logger.TuLog('wbcomptest', '/../log', True, logging.DEBUG).getlog()
     wbun = 'sretof@live.cn'
     wbpw = '1122aaa'
-    wbcomp = WbComp(wbun, wbpw, logger=glogger)
-    wbcomp.login()
-    wbcomp.gethtml('https://weibo.com/5705221157/HwfbzDytxcc', refresh=True)
+    wbcomp = WbComp(wbun, wbpw, mlogger=glogger)
+    # wbcomp.login()
+    # wbcomp.gethtml('https://weibo.com/5705221157/HwfbzDytxcc', refresh=True)
+
+    # ulocpath, utxt = wbcomp.downpage('1', 'https://weibo.com/1886824091/I3raPz6hL', '11', 'F:\\bg', mtype='1321')
+    # print(ulocpath, utxt)
+    #
+    # ulocpath, utxt = wbcomp.downpage('2', 'https://weibo.com/1886824091/I3raPz6hL', '21', 'F:\\bg', mtype='13')
+    # print(ulocpath, utxt)
+
+    # wbcomp.downmedia('4408119490344814', fdir='F:\\bg\\4408119490344814')
+    tacd = 'uid=3275508441&profile_image_url=http://tva2.sinaimg.cn/crop.0.0.720.720.50/c33c4ad9jw8ek1hvopr8ej20k00k0ju0.jpg?Expires=1566553334&ssig=JEwmIKyLB8&KID=imgbed,tva&gid=3909747545351455&gname=股票&screen_name=跟我走吧14&sex=m'
+    tmumap = WbComp.splitacd(tacd, 'uid', 'screen_name')
+    print(tmumap)

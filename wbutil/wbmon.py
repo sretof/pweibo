@@ -25,8 +25,9 @@ def getMongoWChatDb():
 def getgtlmaxmid():
     conn, wdb, coll = getMongoWDb()
     try:
+        pdstr = cald.getdaystr(cald.preday())
         results = coll.aggregate(
-            [{'$match': {'cday': {'$gt': '20190809'}}}, {'$group': {'_id': "$gid", 'maxmid': {'$max': "$smid"}}}])
+            [{'$match': {'cday': {'$gte': pdstr}}}, {'$group': {'_id': "$gid", 'maxmid': {'$max': "$smid"}}}])
         gtlmaxmid = {}
         for res in results:
             gtlmaxmid[res['_id']] = res['maxmid']
@@ -60,14 +61,16 @@ def ckanddelhismbmid(mid):
         return 1
 
 
-def hasdownmedia(mid, fid, locpath):
+def hasdownmedia(mid, fid, locpath, opttext):
     conn, wdb, coll = getMongoWDb()
     try:
-        if locpath == '404':
+        if locpath == '404' or locpath == '1321':
             # pass
             coll.update_one({'mid': mid, 'media.fid': fid}, {'$set': {'media.$.hasd': 1, 'media.$.mtype': locpath}})
         else:
             coll.update_one({'mid': mid, 'media.fid': fid}, {'$set': {'media.$.hasd': 1, 'media.$.locpath': locpath}})
+        if opttext:
+            coll.update_one({'mid': mid}, {'$set': {'ctext': opttext}})
     except Exception as mex:
         raise mex
     finally:

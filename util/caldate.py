@@ -57,7 +57,7 @@ def getdaystr(day=None, fmt='%Y%m%d'):
 
 
 def test():
-    print(today().year)
+    print(getdaystr(preday()))
     # print('01===>', int('01') == 1)
     # print('02===>', int(today().strftime('%Y%m%d')[6:8]) == 1, int(today().strftime('%Y%m%d')[6:8]))
     # print('1===>', calmonths(), calmonthe())

@@ -491,7 +491,7 @@ if __name__ == '__main__':
         finally:
             nhour = datetime.datetime.now().hour
             sleeptime = random.randint(10, 60 * 10)
-            if 12 < nhour < 16:
+            if 9 < nhour < 18:
                 sleeptime = random.randint(4, 14)
             sleeptime = round(sleeptime * 0.1, 1)
             if nhour > 21 or nhour < 8:
