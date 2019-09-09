@@ -16,17 +16,21 @@ import util.tulog as logger
 import wbutil.wbmon as wbmon
 from wbutil import TLFeedAly
 from wbutil import WbComp
+from wbutil import WbPageCmp
 from wbutil.tldetailaly import TLDetailAly
 
 
 class WbGTlCmp:
-    def __init__(self, wbcomp, mlogger=None):
+    def __init__(self, wbcomp, pagecmp=None, mlogger=None):
         if mlogger is None:
             mlogger = logger.TuLog('wbgtlcmp', '/log', True, logging.INFO).getlog()
         self.wbcomp = wbcomp
         self.mlogger = mlogger
         self.downfexecutor = ThreadPoolExecutor(max_workers=1)
         self.vdownfexecutor = ThreadPoolExecutor(max_workers=2)
+        if pagecmp is None:
+            pagecmp = WbPageCmp(wbcomp, mlogger)
+        self.pagecmp = pagecmp
 
     @staticmethod
     def alygtlpageinfo(paged):
@@ -68,9 +72,12 @@ class WbGTlCmp:
         gtlmaxmid = wbmon.getgtlmaxmid()
         self.mlogger.info('WbGTlCmp:fgroupstl START=====>gtlmaxmid:{}'.format(gtlmaxmid))
         for gid in dbc.TLGIDS:
-            self.mlogger.info('WbGTlCmp:fgroupstl:fgroupstl START=====>gid:{}'.format(gid))
-            docct = self.fgrouptl(gid, endsmid=gtlmaxmid.get(gid, ''))
-            self.mlogger.info('WbGTlCmp:fgroupstl:fgroupstl END=====>gid:{},ct:{}'.format(gid, docct))
+            self.mlogger.info('WbGTlCmp:fgroupstl fgroupstl START=====>gid:{}'.format(gid))
+            try:
+                docct = self.fgrouptl(gid, endsmid=gtlmaxmid.get(gid, ''))
+                self.mlogger.info('WbGTlCmp:fgroupstl fgroupstl END=====>gid:{},ct:{}'.format(gid, docct))
+            except Exception as gex:
+                self.mlogger.info('WbGTlCmp:fgroupstl fgroupstl EX=====>gid:{},ex:{}'.format(gid, str(gex)))
         self.mlogger.info('WbGTlCmp:fgroupstl END=====')
 
     def fgrouptl(self, gid, stasmid='', endsmid='', endday=''):
@@ -94,18 +101,19 @@ class WbGTlCmp:
                 else:
                     self.mlogger.error('WbGTlCmp:fgrouptl:fgrouptlpage EX none hemid;gid:{},rcode:{},feedslen:{},hemid:{},hpage:{},rcnt:{},gtlurl:{}'.format(
                         gid, rcode, len(feeds), hemid, hpge, rcnt, gtlurl))
-                if rcnt == 0:
+                if rcnt < 2:
                     time.sleep(60)
                     hemid = '0'
                     hpge = '1'
                     hmmid = '0'
-                elif rcnt >= 1:
+                elif 2 <= rcnt < 4:
                     hemid = '0'
                     hpge = '1'
                     hmmid = '0'
-                    self.wbcomp.refresh(self.wbcomp.wbuuid, rcnt * 10 * 60, True)
-                elif rcnt > 6:
+                    self.wbcomp.refresh(self.wbcomp.wbuuid, (rcnt - 1) * 10 * 60, True)
+                else:
                     raise Exception('fgrouptl EX:gtlurl:{}'.format(gtlurl))
+                rcnt = rcnt + 1
             else:
                 self.mlogger.debug(
                     'WbGTlCmp:fgrouptl:fgrouptlpage;gid:{},rcode:{},feedslen:{},hemid:{},hpage:{},gtlurl:{}'.format(
@@ -121,18 +129,21 @@ class WbGTlCmp:
                     self.mlogger.debug('WbGTlCmp:fgrouptl:alygtlfeeds continue;gid:{},ctlist:{},url:{}'.format(gid, ctlist, gtlurl))
                 for doc in doclist:
                     try:
-                        hasvideo = TLDetailAly.chkandudpmediamtype(gid, doc)
+                        hasvideo = TLDetailAly.chkandudpmediamtype(gid, doc['media'])
+                        if 'fwddoc' in doc and doc['fwddoc'] is not None and doc['fwddoc'] and 'media' in doc['fwddoc'] and doc['fwddoc']['media'] is not None:
+                            TLDetailAly.chkandudpmediamtype(gid, doc['fwddoc']['media'])
                         wbmon.savedoc(gid, doc)
                         docct = docct + 1
                         if len(doc['media']) > 0:
                             if hasvideo:
-                                self.vdownfexecutor.submit(self.wbcomp.downmedia, doc['mid'])
+                                self.vdownfexecutor.submit(self.pagecmp.downmedia, doc['mid'])
                             else:
-                                self.downfexecutor.submit(self.wbcomp.downmedia, doc['mid'])
+                                self.downfexecutor.submit(self.pagecmp.downmedia, doc['mid'])
                             # exmedias = self.wbcomp.downmedia(doc['mid'])
                             # if len(exmedias) > 0:
                             #     self.mlogger.error('WbGTlCmp:fgrouptl:downmedia EX;exmedias:{}'.format(exmedias))
                     except Exception as ex:
+                        self.mlogger.exception(ex)
                         self.mlogger.error('WbGTlCmp:fgrouptl:savedoc EX;ex:{},gid{},mid:{},curl:{}'.format(str(ex), gid, doc['mid'], doc['cturl']))
                 gtlurl = 'https://weibo.com/aj/mblog/fsearch?{}&end_id={}&min_id={}&gid={}&__rnd={}'.format(
                     hpge, hemid, hmmid, gid, cald.gettimestamp())

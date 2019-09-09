@@ -46,6 +46,16 @@ def preday(date=datetime.date.today(), n=1):
     return date + datetime.timedelta(n * -1)
 
 
+def presec(ptime=datetime.datetime.now(), n=1):
+    tn = n * -1
+    return ptime - datetime.timedelta(seconds=tn)
+
+
+def premin(ptime=datetime.datetime.now(), n=1):
+    tn = 60 * n * -1
+    return presec(ptime, tn)
+
+
 def gettimestamp():
     return int(time.time() * 1000)  # 获取13位时间戳
 

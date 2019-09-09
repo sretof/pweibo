@@ -22,6 +22,13 @@ def getMongoWChatDb():
     return conn, wdb, coll
 
 
+def rs2list(rsdocs):
+    rsl = []
+    for rsdoc in rsdocs:
+        rsl.append(rsdoc)
+    return rsl
+
+
 def getgtlmaxmid():
     conn, wdb, coll = getMongoWDb()
     try:
@@ -49,6 +56,27 @@ def getgpbymid(mid):
         conn.close()
 
 
+def getgpbyfmidandfsave(fmid, fsave):
+    conn, wdb, coll = getMongoWDb()
+    try:
+        result = coll.find({'fwdmid': fmid, 'fwdhsave': fsave}).sort('smid', -1)
+        return result
+    except Exception as mex:
+        raise mex
+    finally:
+        conn.close()
+
+
+def delgpbymid(mid):
+    conn, wdb, coll = getMongoWDb()
+    try:
+        coll.delete_one({'mid': mid})
+    except Exception as mex:
+        raise mex
+    finally:
+        conn.close()
+
+
 def ckanddelhismbmid(mid):
     ct = getgpbymid(mid)
     if ct is None:
@@ -64,13 +92,31 @@ def ckanddelhismbmid(mid):
 def hasdownmedia(mid, fid, locpath, opttext):
     conn, wdb, coll = getMongoWDb()
     try:
-        if locpath == '404' or locpath == '1321':
+        if locpath == '404' or locpath == '1321' or locpath == 'timeout' or locpath.startswith('excode'):
             # pass
             coll.update_one({'mid': mid, 'media.fid': fid}, {'$set': {'media.$.hasd': 1, 'media.$.mtype': locpath}})
         else:
             coll.update_one({'mid': mid, 'media.fid': fid}, {'$set': {'media.$.hasd': 1, 'media.$.locpath': locpath}})
         if opttext:
             coll.update_one({'mid': mid}, {'$set': {'ctext': opttext}})
+    except Exception as mex:
+        raise mex
+    finally:
+        conn.close()
+
+
+def hasdownfwdmedia(mid, fid, locpath, opttext):
+    conn, wdb, coll = getMongoWDb()
+    try:
+        if locpath == '404' or locpath == '1321' or locpath == 'timeout':
+            # pass
+            coll.update_one({'mid': mid, 'fwdmedia.fid': fid}, {'$set': {'fwdmedia.$.hasd': 1, 'fwdmedia.$.mtype': 'excode' + locpath}})
+        elif locpath.startswith('excode'):
+            coll.update_one({'mid': mid, 'fwdmedia.fid': fid}, {'$set': {'fwdmedia.$.hasd': 1, 'fwdmedia.$.mtype': locpath}})
+        else:
+            coll.update_one({'mid': mid, 'fwdmedia.fid': fid}, {'$set': {'fwdmedia.$.hasd': 1, 'fwdmedia.$.locpath': locpath}})
+        if opttext:
+            coll.update_one({'mid': mid}, {'$set': {'fwdtext': opttext}})
     except Exception as mex:
         raise mex
     finally:
@@ -98,6 +144,64 @@ def savedoc(gid, doc, tlsrc='gtl'):
     conn, wdb, coll = getMongoWDb()
     try:
         coll.insert_one(doc)
+    except Exception as mex:
+        raise mex
+    finally:
+        conn.close()
+
+
+def undownfwd(fday=None):
+    if fday is None:
+        fday = cald.getdaystr(cald.today())
+    conn, wdb, coll = getMongoWDb()
+    try:
+        isodt = cald.premin(n=30)
+        result = coll.find({'fday': {'$lte': fday}, 'ftime': {'$lte': isodt}, 'fwdhsave': False}).sort('smid', -1).limit(100)
+        return result
+    except Exception as mex:
+        raise mex
+    finally:
+        conn.close()
+
+
+def hasdownfwddoc(mid):
+    conn, wdb, coll = getMongoWDb()
+    try:
+        coll.update_one({'mid': mid}, {'$set': {'fwdhsave': True}})
+        fsdt = getgpbymid(mid)
+        setdoc = {'fwdhsave': True, 'fwddoc': fsdt['fwddoc'], 'fwdtext': fsdt['fwdtext']}
+        fmedias = fsdt.get('fwdmedia', [])
+        if len(fmedias) > 0:
+            setdoc['fwdmedia'] = fmedias
+        coll.update_many({'fwdmid': fsdt['fwdmid'], 'fwdhsave': False}, {'$set': setdoc})
+    except Exception as mex:
+        raise mex
+    finally:
+        conn.close()
+
+
+################
+# UTL
+################
+def getmtlmindoc(uid, conn=None, coll=None):
+    nclose = False
+    if conn is None:
+        nclose = True
+        conn, wdb, coll = getMongoWDb()
+    try:
+        doc = coll.find({'uid': uid}).sort('smid', 1).limit(1)
+        return doc
+    except Exception as mex:
+        raise mex
+    finally:
+        if nclose:
+            conn.close()
+
+
+def hasmtlminmid(uid):
+    conn, wdb, coll = getMongoWDb()
+    try:
+        doc = getmtlmindoc(uid, conn, coll)
     except Exception as mex:
         raise mex
     finally:
@@ -158,16 +262,6 @@ def getmbmaxminmid(muid, maxy):
                 minmid = '-1'
             break
         return maxmid, minmid
-    except Exception as mex:
-        raise mex
-    finally:
-        conn.close()
-
-
-def delgpbymid(mid):
-    conn, wdb, coll = getMongoWDb()
-    try:
-        coll.delete_one({'mid': mid})
     except Exception as mex:
         raise mex
     finally:
@@ -253,5 +347,13 @@ def savedetail(gid, uid, uname, mid, mtype, curl, ctime, txt, files, fwdhsave, f
 
 
 if __name__ == '__main__':
-    gtlmaxmid = getgtlmaxmid()
-    print(gtlmaxmid)
+    # rsdocs = undownfwd()
+    # for rsdoc in rsdocs:
+    #     print(rsdoc['mid'])
+    # hasdownfwddoc('4409900610253824')
+    # rss = undownfwd()
+    # for rs in rss:
+    #     print(rs['mid'])
+    # rss = rs2list(getgpbyfmidandfsave('44112781115655721', True))
+    # print(rss)
+    hasdownfwddoc('4411315231832192')

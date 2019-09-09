@@ -12,13 +12,13 @@ from wbutil.wbcomp import WbComp
 
 class TLDetailAly:
     @staticmethod
-    def chkandudpmediamtype(gid, doc):
+    def chkandudpmediamtype(gid, medias):
         hasvideo = False
-        if len(doc['media']) > 0:
+        if len(medias) > 0:
             hasm13 = False
             haspic = False
             m13doc = {}
-            for amd in doc['media']:
+            for amd in medias:
                 amtype = amd['mtype']
                 if amtype == '13':
                     hasm13 = True
@@ -45,6 +45,13 @@ class TLDetailAly:
                     sps = p.split('"')
                     psv = 'http' + sps[0]
                     break
+            if not psv:
+                for p in psvs:
+                    if 'qType' in p:
+                        psv = 'http' + p
+                        break
+            if not psv:
+                psv = 'http' + psvs[0]
         return unquote(psv)
 
     @staticmethod
@@ -206,6 +213,10 @@ class TLDetailAly:
         mtype = mtype + '31'
         fsdt = wbmon.getgpbymid(fwdmid)
         if fsdt is None:
+            ffsdt = wbmon.rs2list(wbmon.getgpbyfmidandfsave(fwdmid, True))
+            if len(ffsdt) > 0:
+                fsdt = ffsdt[0]
+        if fsdt is None:
             funame = infod.get('nick-name', '')
             fuc = infod.get('usercard', '')
             freg = r'id=(\d+)'
@@ -218,6 +229,8 @@ class TLDetailAly:
             fwdtxt, fmtype, ffiles, fskipdoms = TLDetailAly.getdetailtxt(txtd)
             mediad = fwd.select_one('div.WB_media_wrap > div.media_box')
             fmtype, ffiles, fskipdoms = TLDetailAly.getdetailmedia(mediad, fuid, fwdmid, fmtype, ffiles, fskipdoms)
+            if ffiles is None or not ffiles or len(ffiles) == 0:
+                fwdhsave = True
             retfwdoc = {'mid': fwdmid, 'ctext': fwdtxt, 'cturl': fcurl, 'ctime': fctime, 'uid': fuid,
                         'uname': funame, 'mtype': fmtype, 'media': ffiles}
         else:
@@ -232,21 +245,22 @@ class TLDetailAly:
 
 
 if __name__ == '__main__':
-    vsurl = 'fluency=https%253A%252F%252Fapi.youku.com%252Fvideos%252Fplayer%252Ffile%253Fdata%253DWcEl1o6uUdTJOVFUzT1RnMU5nPT18MHwxfDEwMDUwfDAO0O0O&amp;480=' \
-            'https%3A%2F%2Fapi.youku.com%2Fvideos%2Fplayer%2Ffile%3Fdata%3DWcEl1o6uUdTJOVFUzT1RnMU5nPT18MHwwfDEwMDUwfDAO0O0O&amp;720=&amp;qType=480' \
-            '" action-data="type=feedvideo&amp;objectid=1007002:4407121391878427&amp;keys=4407121394270612&amp;' \
-            'video_src=https%3A%2F%2Fapi.youku.com%2Fvideos%2Fplayer%2Ffile%3Fdata%3DWcEl1o6uUdTJOVFUzT1RnMU5nPT18MHwxfDEwMDUwfDAO0O0O&amp;cover_img' \
-            '=https%3A%2F%2Fvthumb.ykimg.com%2F054101015AAA14EF8B3C46AAC91B7D9E&amp;card_height=540&amp;card_width=960&amp;play_count=5506&amp;duration=390&amp;short_url' \
-            '=http%3A%2F%2Ft.cn%2FAiQ4tfcc%3Fm%3D4407121392845445%26u%3D1807436544&amp;encode_mode=&amp;bitrate=&amp;biz_id=231193&amp;current_mid=4407121392845445&amp;video_orientation=horizontal'
-    # print(TLDetailAly.getvideosource(vsurl))
+    # vsurl = 'fluency=https%253A%252F%252Fapi.youku.com%252Fvideos%252Fplayer%252Ffile%253Fdata%253DWcEl1o6uUdTJOVFUzT1RnMU5nPT18MHwxfDEwMDUwfDAO0O0O&amp;480=' \
+    #         'https%3A%2F%2Fapi.youku.com%2Fvideos%2Fplayer%2Ffile%3Fdata%3DWcEl1o6uUdTJOVFUzT1RnMU5nPT18MHwwfDEwMDUwfDAO0O0O&amp;720=&amp;qType=480' \
+    #         '" action-data="type=feedvideo&amp;objectid=1007002:4407121391878427&amp;keys=4407121394270612&amp;' \
+    #         'video_src=https%3A%2F%2Fapi.youku.com%2Fvideos%2Fplayer%2Ffile%3Fdata%3DWcEl1o6uUdTJOVFUzT1RnMU5nPT18MHwxfDEwMDUwfDAO0O0O&amp;cover_img' \
+    #         '=https%3A%2F%2Fvthumb.ykimg.com%2F054101015AAA14EF8B3C46AAC91B7D9E&amp;card_height=540&amp;card_width=960&amp;play_count=5506&amp;duration=390&amp;short_url' \
+    #         '=http%3A%2F%2Ft.cn%2FAiQ4tfcc%3Fm%3D4407121392845445%26u%3D1807436544&amp;encode_mode=&amp;bitrate=&amp;biz_id=231193&amp;current_mid=4407121392845445&amp;video_orientation=horizontal'
+    vsurl = '=https%253A%252F%252Fmultimedia.api.weibo.com%252F2%252Fmultimedia%252Fredirect_tencent_video.json%253Fvid%253Db0031sjobsz&480=https%3A%2F%2Fmultimedia.api.weibo.com%2F2%2Fmultimedia%2Fredirect_tencent_video.json%3Fvid%3Db0031sjobsz&720=&qType=480'
+    print(TLDetailAly.getvideosource(vsurl))
     # print('===', unquote(''))
 
-    cmedia = []
-    mto = {'mtype': '13'}
-    mtp = {'mtype': '21'}
-    cmedia.append(mto)
-    cmedia.append(mtp)
-    tdoc = {'media': cmedia}
-    hasv = TLDetailAly.chkandudpmediamtype('1', tdoc)
-    print(hasv)
-    print(tdoc)
+    # cmedia = []
+    # mto = {'mtype': '13'}
+    # mtp = {'mtype': '21'}
+    # cmedia.append(mto)
+    # cmedia.append(mtp)
+    # tdoc = {'media': cmedia}
+    # hasv = TLDetailAly.chkandudpmediamtype('1', tdoc)
+    # print(hasv)
+    # print(tdoc)

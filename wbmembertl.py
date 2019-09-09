@@ -25,7 +25,8 @@ def fgtlslp():
 def fgroupsuidst(putlcmp):
     while 1:
         putlcmp.fgroupsuids()
-        time.sleep(60 * 60 * 2)
+        ih = random.randint(4, 48)
+        time.sleep(3600 * ih)
 
 
 if __name__ == '__main__':
