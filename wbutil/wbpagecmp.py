@@ -56,7 +56,7 @@ class WbPageCmp:
         return okmedias, exmedias
 
     def downfwdmedia(self, gid, mid, uid, fmid, fcday, fmedia):
-        fdir = self.wbcomp.picdir + '\\tlgid' + gid + '\\fwd\\tluid' + uid + '\\' + fcday
+        fdir = self.wbcomp.picdir + '\\tlgid' + gid + '\\fwd\\tluid' + uid + '\\' + fcday[0:6]
         okmedias, exmedias = self.__downmedia(fmid, fmedia, fdir)
         for okmedia in okmedias:
             wbmon.hasdownfwdmedia(mid, okmedia['fid'], okmedia['locpath'], okmedia['opttext'])
@@ -87,7 +87,7 @@ class WbPageCmp:
         if not dcday:
             dcday = cald.getdaystr()
         if fdir is None:
-            fdir = self.wbcomp.picdir + '\\tlgid' + gid + '\\tluid' + uid + '\\' + dcday
+            fdir = self.wbcomp.picdir + '\\tlgid' + gid + '\\tluid' + uid + '\\' + dcday[0:6]
         if not os.path.exists(fdir):
             os.makedirs(fdir)
         okmedias, exmedias = self.__downmedia(mid, medias, fdir)

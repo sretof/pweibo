@@ -66,6 +66,10 @@ def getdaystr(day=None, fmt='%Y%m%d'):
     return day.strftime(fmt)
 
 
+def getperiod(day=None, fmt='%Y%m'):
+    return getdaystr(day, fmt)
+
+
 def test():
     print(getdaystr(preday()))
     # print('01===>', int('01') == 1)

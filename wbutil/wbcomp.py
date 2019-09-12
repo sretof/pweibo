@@ -23,7 +23,7 @@ urllib3.disable_warnings()  # 取消警告
 
 
 class WbComp:
-    def __init__(self, username, password, proxies=None, picdir='F:\OneDrive\weibopic09', mlogger=None):
+    def __init__(self, username, password, proxies=None, picdir='F:\OneDrive\weibopicfz', mlogger=None):
         if proxies is None:
             proxies = {}
         if mlogger is None:
@@ -247,13 +247,13 @@ class WbComp:
                     time.sleep(60 * 4)
             except Exception as ghex:
                 rex = ghex
+                self.mlogger.error('WbComp:gethtml error=====>ex:{},tyrcnt:{},url:{}'.format(str(rex), tyrcnt, url))
             finally:
                 self.wblock.release()
             if tyrcnt >= rtry and refresh:
                 refresh = False
                 rtry = rtry * 2
                 self.refresh(ouuid)
-        self.mlogger.error('WbComp:gethtml error=====>ex:{},url:{}'.format(str(rex), url))
         raise rex
 
     def postdata(self, url, data, ctype='', timeout=(30, 60)):
