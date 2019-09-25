@@ -150,6 +150,8 @@ class WbComp:
                 raise WbCompError(404, url, text)
             if '违反' in text and '安全检测规则' in text:
                 raise WbCompError(9991, url, text)
+            if '414 Request-URI Too Large' in text:
+                raise WbCompError(414, url, text)
         elif rcode == 414 or rcode == 404:
             raise WbCompError(rcode, url, text)
         return rcode, text
@@ -256,8 +258,10 @@ class WbComp:
                 self.refresh(ouuid)
         raise rex
 
-    def postdata(self, url, data, ctype='', timeout=(30, 60)):
-        self.mlogger.debug('WbComp:postdata error=====>url:{}'.url)
+    def postdata(self, url, data, ctype='', timeout=(30, 60), slt=0):
+        self.mlogger.debug('WbComp:postdata error=====>url:{}'.format(url))
+        if slt:
+            time.sleep(slt)
         try:
             self.wblock.acquire()
             self.wblock.release()
@@ -265,7 +269,7 @@ class WbComp:
             if ctype == 'chat':
                 headers['Referer'] = 'https://api.weibo.com/chat/'
             self.session.post(url, data, timeout=timeout)
-            self.mlogger.debug('WbComp:postdata success=====>url:{}'.url)
+            self.mlogger.debug('WbComp:postdata success=====>url:{}'.format(url))
         except Exception as pex:
             self.mlogger.error('WbComp:postdata error=====>ex:{},url:{}'.format(str(pex), url))
 

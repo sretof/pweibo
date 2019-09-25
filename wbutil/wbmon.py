@@ -32,7 +32,7 @@ def rs2list(rsdocs):
 def getgtlmaxmid():
     conn, wdb, coll = getMongoWDb()
     try:
-        pdstr = cald.getdaystr(cald.preday())
+        pdstr = cald.getdaystr(cald.preday(n=7))
         results = coll.aggregate(
             [{'$match': {'cday': {'$gte': pdstr}}}, {'$group': {'_id': "$gid", 'maxmid': {'$max': "$smid"}}}])
         gtlmaxmid = {}
@@ -211,7 +211,23 @@ def hasmtlminmid(uid):
 ################
 # CHAT
 ################
-def savechatdata(mid, gid, buid, bn, cttype, ct, hd, fid, fpath, mtime):
+def getgcmaxmid():
+    conn, wdb, coll = getMongoWChatDb()
+    try:
+        pdstr = cald.getdaystr(cald.preday(n=7))
+        results = coll.aggregate(
+            [{'$match': {'mday': {'$gte': pdstr}}}, {'$group': {'_id': "$gid", 'maxmid': {'$max': "$smid"}}}])
+        gcmaxmid = {}
+        for res in results:
+            gcmaxmid[res['_id']] = res['maxmid']
+        return gcmaxmid
+    except Exception as mex:
+        raise mex
+    finally:
+        conn.close()
+
+
+def savechatdata(mid, mday, gid, buid, bn, cttype, ct, hd, fid, fpath, mtime):
     doc = dict()
     doc['gid'] = gid
     doc['mid'] = mid
@@ -222,9 +238,11 @@ def savechatdata(mid, gid, buid, bn, cttype, ct, hd, fid, fpath, mtime):
     doc['hd'] = hd
     doc['fid'] = fid
     doc['fpath'] = fpath
-    doc['mday'] = mtime.strftime('%Y%m%d')
+    doc['mday'] = mday
     doc['mtime'] = mtime
     doc['ftime'] = cald.now()
+    smid = mday + mid
+    doc['smid'] = smid
     savechatdoc(doc)
 
 
@@ -234,9 +252,29 @@ def savechatdoc(doc):
     if 'mdate' in doc:
         doc['mday'] = doc['mdate']
         del doc['mdate']
+    if 'smid' not in doc:
+        doc['smid'] = doc['mday'] + doc['mid']
     conn, wdb, coll = getMongoWChatDb()
     try:
         coll.insert_one(doc)
+    except Exception as mex:
+        raise mex
+    finally:
+        conn.close()
+
+
+def savechatdocs(docs):
+    for doc in docs:
+        if 'id' in doc:
+            del doc['id']
+        if 'mdate' in doc:
+            doc['mday'] = doc['mdate']
+            del doc['mdate']
+        if 'smid' not in doc:
+            doc['smid'] = doc['mday'] + doc['mid']
+    conn, wdb, coll = getMongoWChatDb()
+    try:
+        coll.insert_many(docs)
     except Exception as mex:
         raise mex
     finally:

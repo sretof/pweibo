@@ -6,3 +6,4 @@ from wbutil.wbex import WbCompError
 from wbutil.wbgtlcmp import WbGTlCmp
 from wbutil.wbutlcmp import WbUTlCmp
 from wbutil.wbfwdcmp import WbFwdCmp
+from wbutil.wbgchatcmp import WbGChatCmp

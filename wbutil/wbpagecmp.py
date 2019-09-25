@@ -46,6 +46,8 @@ class WbPageCmp:
                 locpath = self.downpic(mid, purl, fid, fdir)
             else:
                 locpath = self.downvideo(mid, purl, fid, fdir)
+            if locpath and locpath == 'excode414':
+                locpath = ''
             if locpath:
                 okmedias.append({'mid': mid, 'fid': fid, 'locpath': locpath, 'opttext': opttext})
             else:
@@ -223,7 +225,7 @@ class WbPageCmp:
             locpath = '404'
         except WbCompError as wex:
             self.mlogger.warning('WbPageCmp:downpage EX1;mid:{},fid:{},ex:{},murl:{}'.format(mid, fid, str(wex), src))
-            locpath = 'excode' + wex.excode
+            locpath = 'excode' + str(wex.excode)
         except TimeoutError as tex:
             self.mlogger.warning('WbPageCmp:downpage EX2;mid:{},fid:{},ex:{},murl:{}'.format(mid, fid, str(tex), src))
             locpath = 'timeout'
@@ -309,10 +311,48 @@ class WbPageCmp:
             self.mlogger.error('WbPageCmp:downvideo EX;mid:{},fid:{},ex:{},murl:{}'.format(mid, fid, str(ex), src))
         return locpath
 
-    # def fchpage(self, purl):
-    #     rcode, text = self.wbcomp.gethtml(purl)
-    #     if rcode != 200:
-    #         self.mlogger.
+    def downchatpic(self, src, fdir):
+        fid = ''
+        locpath = ''
+        success = 1
+        fids = re.findall(r'\S+fid=(\d+)', src, re.S)
+        if len(fids) == 1:
+            fid = fids[0]
+        res = self.wbcomp.getres(src, timeout=(30, 300))
+        cdi = res.headers.get('Content-Disposition', '')
+        if cdi:
+            cdis = re.findall(r'\S+filename="(\S+)"', cdi, re.S)
+            if len(cdis) == 1:
+                sfix = cdis[0]
+                filename = fid + 'f' + sfix
+                locpath = fdir + '\\' + filename
+                img = res.content
+                with open(locpath, 'wb') as f:
+                    f.write(img)
+        return success, locpath
+
+    def fchchathb(self, hburl, slt=0):
+        success = 0
+        if slt:
+            slt = round(slt * 0.1, 1)
+            time.sleep(slt)
+        text = self.wbcomp.gethtml(hburl, 'chat')[1]
+        hbamt = 0
+        p = r'\$CONFIG\[\'bonus\'\]\s*=\s*\"(.+?)\"'
+        hbamttxt = re.findall(p, text, re.S)
+        if len(hbamttxt) > 0:
+            hbamt = float(hbamttxt[0])
+        if '已存入您的钱包' in text and hbamt > 0:
+            success = 1
+        if not success:
+            self.mlogger.warning('hb success:{} hbamt:{} text:{}'.format(success, hbamt, text))
+        return success, hbamt, slt
+
+    def fchchathtml(self, hurl):
+        self.mlogger.debug('fchchathtml:{}'.format(hurl))
+        success = 0
+        fpath = ''
+        return success, fpath
 
 
 if __name__ == '__main__':

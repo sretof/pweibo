@@ -60,6 +60,10 @@ def gettimestamp():
     return int(time.time() * 1000)  # 获取13位时间戳
 
 
+def fromutime(ut):
+    return datetime.datetime.fromtimestamp(ut)
+
+
 def getdaystr(day=None, fmt='%Y%m%d'):
     if day is None:
         day = now()
@@ -68,6 +72,12 @@ def getdaystr(day=None, fmt='%Y%m%d'):
 
 def getperiod(day=None, fmt='%Y%m'):
     return getdaystr(day, fmt)
+
+
+def gethour(day=None):
+    if day is None:
+        day = now()
+    return day.hour
 
 
 def test():
