@@ -11,6 +11,7 @@ import util.tulog as logger
 import wbutil.wbmon as wbmon
 from wbutil import WbComp
 from wbutil import WbPageCmp
+from wbutil.wbex import WbChatGetDocError
 
 
 class WbGChatCmp:
@@ -86,7 +87,8 @@ class WbGChatCmp:
                 self.fchattl(gid, endsmid=gcmaxmid.get(gid, ''))
                 self.mlogger.info('WbGChatCmp:fgroupstl fgroupstl END=====>gid:{}'.format(gid))
             except Exception as gex:
-                self.mlogger.info('WbGChatCmp:fgroupstl fgroupstl EX=====>gid:{},ex:{}'.format(gid, str(gex)))
+                self.wbcomp.refresh(self.wbcomp.wbuuid)
+                self.mlogger.error('WbGChatCmp:fgroupstl fgroupstl EX=====>gid:{},ex:{}'.format(gid, str(gex)))
         self.mlogger.info('WbGChatCmp:fgroupstl END=====')
 
     def fchattl(self, gid, stasmid='', endsmid='', endday=''):
@@ -100,8 +102,11 @@ class WbGChatCmp:
             jtext = self.wbcomp.gethtml(chatapiurl, 'chat')[1]
             msgsjson = json.loads(jtext)
             msgs = msgsjson.get('messages', [])
+            retcode = str(msgsjson.get('retcode', 0))
+            if retcode == '50111309':
+                raise WbChatGetDocError(retcode)
             if len(msgs) == 0:
-                self.mlogger.debug('WbGChatCmp:fchattl END1 no ct url:{}'.format(chatapiurl))
+                self.mlogger.debug('WbGChatCmp:fchattl END1 no ct jtext:{},url:{}'.format(jtext, chatapiurl))
                 break
             msgs.reverse()
             self.mlogger.debug('WbGChatCmp:fchattl hismid:{},len:{}'.format(hismid, len(msgs)))

@@ -259,7 +259,7 @@ class WbComp:
         raise rex
 
     def postdata(self, url, data, ctype='', timeout=(30, 60), slt=0):
-        self.mlogger.debug('WbComp:postdata error=====>url:{}'.format(url))
+        self.mlogger.error('WbComp:postdata=====>url:{},data:{}'.format(url, data))
         if slt:
             time.sleep(slt)
         try:
@@ -268,7 +268,7 @@ class WbComp:
             headers = {}
             if ctype == 'chat':
                 headers['Referer'] = 'https://api.weibo.com/chat/'
-            self.session.post(url, data, timeout=timeout)
+            self.session.post(url, data, headers=headers, timeout=timeout)
             self.mlogger.debug('WbComp:postdata success=====>url:{}'.format(url))
         except Exception as pex:
             self.mlogger.error('WbComp:postdata error=====>ex:{},url:{}'.format(str(pex), url))

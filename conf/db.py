@@ -16,18 +16,17 @@ MGOCTCOLL = 'Contents'
 MGOCHATCOLL = 'ChatContents'
 
 # WBCONF
+WBUN = 'sretof@live.cn'
+WBPW = '1122aaa'
 ADURL = ('tui.weibo',)
 TLGIDS = ('3653960185837784', '3909747545351455', '4198223948149624', '4005405388023195', '3951063348253369')
 NDIMGCLS = ('W_img_statistics', 'W_face_radius')
-
-# WB
-WBUN = 'sretof@live.cn'
-WBPW = '1122aaa'
-
-# CHAT
-CHATGIDS = ('4305987512698522',)
-HBRMSGS = ('感谢大佬', '谢谢大佬', '谢谢大佬红包',)
-
 # SRC
 SRCCHAT = '209678993'
 SRCPAGE = '4037146678'
+# CHAT
+CHATGIDS = ('4305987512698522',)
+HBRMSGS = ('感谢大佬', '谢谢大佬', '谢谢大佬红包',)
+# UTL
+UTLGID = ('3653960185837784', '3909747545351455',)
+UTLUID = ('1783084442',)

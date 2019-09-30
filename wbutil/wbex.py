@@ -34,6 +34,15 @@ class WbMonNoneDocError(Exception):
         return 'WbMonNoneDocError mid:{}'.format(self.mid)
 
 
+class WbChatGetDocError(Exception):
+    def __init__(self, excode):
+        self.excode = excode
+        super().__init__(self)
+
+    def __str__(self):
+        return 'WbChatGetDocError mid:{}'.format(self.excode)
+
+
 if __name__ == '__main__':
     wbe = WbMonNoneDocError('1')
     print(wbe)
