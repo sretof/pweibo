@@ -102,8 +102,8 @@ class WbGChatCmp:
             jtext = self.wbcomp.gethtml(chatapiurl, 'chat')[1]
             msgsjson = json.loads(jtext)
             msgs = msgsjson.get('messages', [])
-            retcode = str(msgsjson.get('retcode', 0))
-            if retcode == '50111309':
+            retcode = str(msgsjson.get('error_code', 0))
+            if retcode == '21301':
                 raise WbChatGetDocError(retcode)
             if len(msgs) == 0:
                 self.mlogger.debug('WbGChatCmp:fchattl END1 no ct jtext:{},url:{}'.format(jtext, chatapiurl))

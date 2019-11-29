@@ -183,6 +183,19 @@ def hasdownfwddoc(mid):
 ################
 # UTL
 ################
+def getutlhect():
+    conn = MongoClient(dbc.MGOHOST, 27017)
+    wdb = conn[dbc.MGOWDB]
+    coll = wdb[dbc.MGOUTLHCOLL]
+    try:
+        result = coll.find()
+        return result
+    except Exception as mex:
+        raise mex
+    finally:
+        conn.close()
+
+
 def getmtlmindoc(uid, conn=None, coll=None):
     nclose = False
     if conn is None:
@@ -196,16 +209,6 @@ def getmtlmindoc(uid, conn=None, coll=None):
     finally:
         if nclose:
             conn.close()
-
-
-def hasmtlminmid(uid):
-    conn, wdb, coll = getMongoWDb()
-    try:
-        doc = getmtlmindoc(uid, conn, coll)
-    except Exception as mex:
-        raise mex
-    finally:
-        conn.close()
 
 
 ################

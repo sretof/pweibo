@@ -12,11 +12,10 @@ from concurrent.futures import ThreadPoolExecutor
 from bs4 import BeautifulSoup
 
 import conf.db as dbc
+import util.caldate as cald
 import util.tulog as logger
 from wbutil import WbComp
 from wbutil import WbPageCmp
-
-import util.caldate as cald
 
 
 class WbUTlCmp:
@@ -40,7 +39,7 @@ class WbUTlCmp:
     #             return True
     #     return False
 
-    def fmembertl(self, gid, uid,stasmid='', endsmid='', endday=''):
+    def fmembertl(self, gid, uid, stasmid='', endsmid='', endday=''):
         if not endday:
             endday = cald.getdaystr(cald.calmonths(x=150))
         gtlurl = 'https://weibo.com/aj/mblog/fsearch?gid={}&_rnd={}'.format(gid, cald.gettimestamp())
