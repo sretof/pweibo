@@ -125,7 +125,7 @@ class WbGChatCmp:
                     hismid = ''
                     self.mlogger.debug('WbGChatCmp:fchattl END3 endday url:{},endday:{}'.format(chatapiurl, endday))
                     break
-                fdir = self.wbcomp.picdir + '\\cgid' + gid + '\\' + cald.getperiod(mtime)
+                fdir = self.wbcomp.picdir + '/cgid' + gid + '/' + cald.getperiod(mtime)
                 if not os.path.exists(fdir):
                     os.makedirs(fdir)
                 try:

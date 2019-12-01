@@ -58,7 +58,7 @@ class WbPageCmp:
         return okmedias, exmedias
 
     def downfwdmedia(self, gid, mid, uid, fmid, fcday, fmedia):
-        fdir = self.wbcomp.picdir + '\\tlgid' + gid + '\\fwd\\tluid' + uid + '\\' + fcday[0:6]
+        fdir = self.wbcomp.picdir + '/tlgid' + gid + '/fwd/tluid' + uid + '/' + fcday[0:6]
         okmedias, exmedias = self.__downmedia(fmid, fmedia, fdir)
         for okmedia in okmedias:
             wbmon.hasdownfwdmedia(mid, okmedia['fid'], okmedia['locpath'], okmedia['opttext'])
@@ -89,7 +89,7 @@ class WbPageCmp:
         if not dcday:
             dcday = cald.getdaystr()
         if fdir is None:
-            fdir = self.wbcomp.picdir + '\\tlgid' + gid + '\\tluid' + uid + '\\' + dcday[0:6]
+            fdir = self.wbcomp.picdir + '/tlgid' + gid + '/tluid' + uid + '/' + dcday[0:6]
         if not os.path.exists(fdir):
             os.makedirs(fdir)
         okmedias, exmedias = self.__downmedia(mid, medias, fdir)
@@ -115,7 +115,7 @@ class WbPageCmp:
             img = res.content
             fuuid = ''.join(str(uuid.uuid1()).split('-'))
             fname = fuuid + '.' + rtext[0][1]
-            with open(fpath + '\\' + fname, 'wb') as f:
+            with open(fpath + '/' + fname, 'wb') as f:
                 f.write(img)
             return fname
         except Exception as dpiex:
@@ -169,7 +169,7 @@ class WbPageCmp:
             if mtype == '13' or mtype == '15':
                 idoms = soup.select('img')
                 fimgdir = mid + fid + '.files'
-                filepath = fdir + '\\' + fimgdir
+                filepath = fdir + '/' + fimgdir
                 if not os.path.exists(filepath):
                     os.makedirs(filepath)
                 idomex1 = []
@@ -191,7 +191,7 @@ class WbPageCmp:
                         iurl = 'https:' + iurl
                     elif iurl.startswith('http'):
                         pass
-                    elif '.files\\' in iurl:
+                    elif '.files/' in iurl:
                         iurl = ''
                     elif not iurl:
                         pass
@@ -201,7 +201,7 @@ class WbPageCmp:
                     if iurl:
                         try:
                             fname = self.downpageimg(iurl, filepath, mtype)
-                            idom['src'] = fimgdir + '\\' + fname
+                            idom['src'] = fimgdir + '/' + fname
                             idomdown.append(iurl)
                         except Exception as dpiex:
                             idomex2.append({'iurl': iurl, 'ex': str(dpiex)})
@@ -210,7 +210,7 @@ class WbPageCmp:
                 if len(idomex2) > 0:
                     self.mlogger.error('WbPageCmp:downpage:downpageimg EX2;mid:{},fid:{},murl:{},iurls:{}'.format(mid, fid, src, idomex2))
                 self.mlogger.debug('WbPageCmp:downpage:downpageimg success;mid:{},fid:{},murl:{},iurls:{}'.format(mid, fid, src, idomdown))
-            locpath = fdir + '\\' + mid + fid + '.html'
+            locpath = fdir + '/' + mid + fid + '.html'
             if mtype.startswith('13'):
                 dtxdiv = soup.select_one('div.WB_detail > div.WB_text')
                 if dtxdiv is not None:
@@ -258,7 +258,7 @@ class WbPageCmp:
                 if not fname:
                     raise Exception('pic fname is none;mid:{},fid:{},src:{}'.format(mid, fid, src))
                 res = self.wbcomp.getres(imgurl, timeout=(30, 300))
-                locpath = fdir + '\\' + mid + fname
+                locpath = fdir + '/' + mid + fname
                 img = res.content
                 with open(locpath, 'wb') as f:
                     f.write(img)
@@ -297,7 +297,7 @@ class WbPageCmp:
             if not fname:
                 raise Exception('video fname is none;src:{},fid:{}'.format(src, fid))
             res = self.wbcomp.getres(src, timeout=(30, 300))
-            locpath = fdir + '\\' + mid + fname
+            locpath = fdir + '/' + mid + fname
             img = res.content
             with open(locpath, 'wb') as f:
                 f.write(img)
@@ -325,7 +325,7 @@ class WbPageCmp:
             if len(cdis) == 1:
                 sfix = cdis[0]
                 filename = fid + 'f' + sfix
-                locpath = fdir + '\\' + filename
+                locpath = fdir + '/' + filename
                 img = res.content
                 with open(locpath, 'wb') as f:
                     f.write(img)
