@@ -28,7 +28,7 @@ class WbPageCmp:
         self.wbcomp = wbcomp
         self.mlogger = mlogger
 
-    def __downmedia(self, mid, medias, fdir):
+    def __downmedia(self, mid, medias, fdir, dvp=False):
         if not os.path.exists(fdir):
             os.makedirs(fdir)
         exmedias = []
@@ -67,7 +67,7 @@ class WbPageCmp:
         else:
             wbmon.hasdownfwddoc(mid)
 
-    def downmedia(self, mid, doc=None, fdir=None):
+    def downmedia(self, mid, doc=None, fdir=None, dvp=False):
         gdoccnt = 0
         while gdoccnt < 1:
             doc = wbmon.getgpbymid(mid)
@@ -92,7 +92,7 @@ class WbPageCmp:
             fdir = self.wbcomp.picdir + '/tlgid' + gid + '/tluid' + uid + '/' + dcday[0:6]
         if not os.path.exists(fdir):
             os.makedirs(fdir)
-        okmedias, exmedias = self.__downmedia(mid, medias, fdir)
+        okmedias, exmedias = self.__downmedia(mid, medias, fdir, dvp)
         for okmedia in okmedias:
             wbmon.hasdownmedia(mid, okmedia['fid'], okmedia['locpath'], okmedia['opttext'])
         if len(exmedias) > 0:

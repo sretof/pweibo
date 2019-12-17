@@ -27,7 +27,7 @@ class WbGTlCmp:
         self.wbcomp = wbcomp
         self.mlogger = mlogger
         self.downfexecutor = ThreadPoolExecutor(max_workers=1)
-        self.vdownfexecutor = ThreadPoolExecutor(max_workers=2)
+        # self.vdownfexecutor = ThreadPoolExecutor(max_workers=2)
         if pagecmp is None:
             pagecmp = WbPageCmp(wbcomp, mlogger)
         self.pagecmp = pagecmp
@@ -136,8 +136,10 @@ class WbGTlCmp:
                         docct = docct + 1
                         if len(doc['media']) > 0:
                             if hasvideo:
-                                self.vdownfexecutor.submit(self.pagecmp.downmedia, doc['mid'])
+                                pass
+                                # self.vdownfexecutor.submit(self.pagecmp.downmedia, doc['mid'])
                             else:
+                                pass
                                 self.downfexecutor.submit(self.pagecmp.downmedia, doc['mid'])
                             # exmedias = self.wbcomp.downmedia(doc['mid'])
                             # if len(exmedias) > 0:

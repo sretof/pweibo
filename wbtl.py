@@ -33,9 +33,9 @@ if __name__ == '__main__':
     gtlcmp = WbGTlCmp(tlwbcomp, pagecmp=pagecmp, mlogger=tllogger)
     utlcmp = WbUTlCmp(utlwbcomp, pagecmp=pagecmp, mlogger=utllogger)
     utlcmp.fgroupsuidsex()
-    flogger = logger.TuLog('[wbtl]wbfwdcmp', '/log', True, logging.WARNING).getlog()
-    fwdcmp = WbFwdCmp(tlwbcomp, utlcmp, mlogger=flogger)
-    fwdcmp.ffwddocsex()
+    # flogger = logger.TuLog('[wbtl]wbfwdcmp', '/log', True, logging.WARNING).getlog()
+    # fwdcmp = WbFwdCmp(tlwbcomp, utlcmp, mlogger=flogger)
+    # fwdcmp.ffwddocsex()
     while 1:
         gtlcmp.fgroupstl()
         fgtlslp(tllogger)
