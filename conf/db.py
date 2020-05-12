@@ -11,10 +11,13 @@ NDBSCHEMA = "weibo"
 
 # MGO
 MGOHOST = "localhost"
+#MGOHOST = "139.199.13.252"
 MGOWDB = "weibo"
 MGOCTCOLL = 'Contents'
 MGOCHATCOLL = 'ChatContents'
 MGOUTLHCOLL = 'Utlhect'
+MGOWU = 'weibo'
+MGOWP = 'Weibo@173'
 
 # WBCONF
 WBUN = 'sretof@live.cn'

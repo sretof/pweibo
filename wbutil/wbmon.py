@@ -11,6 +11,7 @@ import util.caldate as cald
 def getMongoWDb():
     conn = MongoClient(dbc.MGOHOST, 27017)
     wdb = conn[dbc.MGOWDB]
+    wdb.authenticate(dbc.MGOWU, dbc.MGOWU)
     coll = wdb[dbc.MGOCTCOLL]
     return conn, wdb, coll
 
@@ -18,6 +19,7 @@ def getMongoWDb():
 def getMongoWChatDb():
     conn = MongoClient(dbc.MGOHOST, 27017)
     wdb = conn[dbc.MGOWDB]
+    wdb.authenticate(dbc.MGOWU, dbc.MGOWU)
     coll = wdb[dbc.MGOCHATCOLL]
     return conn, wdb, coll
 
