@@ -9,18 +9,14 @@ import util.caldate as cald
 
 
 def getMongoWDb():
-    conn = MongoClient(dbc.MGOHOST, 27017)
-    wdb = conn.admin
-    wdb.authenticate(dbc.MGOWU, dbc.MGOWU, mechanism='SCRAM-SHA-256')
+    conn = MongoClient(dbc.MGOHOST, username=dbc.MGOWU, password=dbc.MGOWU, authSource='admin', authMechanism='SCRAM-SHA-256')
     wdb = conn[dbc.MGOWDB]
     coll = wdb[dbc.MGOCTCOLL]
     return conn, wdb, coll
 
 
 def getMongoWChatDb():
-    conn = MongoClient(dbc.MGOHOST, 27017)
-    wdb = conn.admin
-    wdb.authenticate(dbc.MGOWU, dbc.MGOWU, mechanism='SCRAM-SHA-256')
+    conn = MongoClient(dbc.MGOHOST, username=dbc.MGOWU, password=dbc.MGOWU, authSource='admin', authMechanism='SCRAM-SHA-256')
     wdb = conn[dbc.MGOWDB]
     coll = wdb[dbc.MGOCHATCOLL]
     return conn, wdb, coll
@@ -401,4 +397,7 @@ if __name__ == '__main__':
     #     print(rs['mid'])
     # rss = rs2list(getgpbyfmidandfsave('44112781115655721', True))
     # print(rss)
-    hasdownfwddoc('4411315231832192')
+    # hasdownfwddoc('4411315231832192')
+    oconn = MongoClient("139.199.13.252", username='weibo', password='Weibo@173', authSource='admin', authMechanism='SCRAM-SHA-256')
+    owdb = oconn[dbc.MGOWDB]
+    ocoll = owdb[dbc.MGOCHATCOLL]
