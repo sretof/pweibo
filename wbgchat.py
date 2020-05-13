@@ -28,5 +28,9 @@ if __name__ == '__main__':
     chatcmp = WbGChatCmp(wbcomp, mlogger=wclogger)
     while 1:
         lonhour = cald.gethour()
-        chatcmp.fchatstl()
+        try:
+            chatcmp.fchatstl()
+        except Exception as gex:
+            wclogger.error('wbgchat,ex:{}'.format(str(gex)))
+            raise gex
         fchatslp(lonhour, wclogger)
