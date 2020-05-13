@@ -10,16 +10,18 @@ import util.caldate as cald
 
 def getMongoWDb():
     conn = MongoClient(dbc.MGOHOST, 27017)
-    wdb = conn[dbc.MGOWDB]
+    wdb = conn.admin
     wdb.authenticate(dbc.MGOWU, dbc.MGOWU, mechanism='SCRAM-SHA-256')
+    wdb = conn[dbc.MGOWDB]
     coll = wdb[dbc.MGOCTCOLL]
     return conn, wdb, coll
 
 
 def getMongoWChatDb():
     conn = MongoClient(dbc.MGOHOST, 27017)
-    wdb = conn[dbc.MGOWDB]
+    wdb = conn.admin
     wdb.authenticate(dbc.MGOWU, dbc.MGOWU, mechanism='SCRAM-SHA-256')
+    wdb = conn[dbc.MGOWDB]
     coll = wdb[dbc.MGOCHATCOLL]
     return conn, wdb, coll
 
