@@ -16,8 +16,8 @@ MGOWDB = "weibo"
 MGOCTCOLL = 'Contents'
 MGOCHATCOLL = 'ChatContents'
 MGOUTLHCOLL = 'Utlhect'
-MGOWU = 'weibo'
-MGOWP = 'Weibo@173'
+MGOWAUU = 'weibo'
+MGOWAUP = 'Weibo@173'
 
 # WBCONF
 WBUN = 'sretof@live.cn'
