@@ -9,14 +9,14 @@ import util.caldate as cald
 
 
 def getMongoWDb():
-    conn = MongoClient(dbc.MGOHOST, username=dbc.MGOWU, password=dbc.MGOWU, authSource='admin', authMechanism='SCRAM-SHA-256')
+    conn = MongoClient(dbc.MGOHOST, username=dbc.MGOWU, password=dbc.MGOWU, authSource='weibo', authMechanism='SCRAM-SHA-1')
     wdb = conn[dbc.MGOWDB]
     coll = wdb[dbc.MGOCTCOLL]
     return conn, wdb, coll
 
 
 def getMongoWChatDb():
-    conn = MongoClient(dbc.MGOHOST, username=dbc.MGOWU, password=dbc.MGOWU, authSource='admin', authMechanism='SCRAM-SHA-256')
+    conn = MongoClient(dbc.MGOHOST, username=dbc.MGOWU, password=dbc.MGOWU, authSource='weibo', authMechanism='SCRAM-SHA-1')
     wdb = conn[dbc.MGOWDB]
     coll = wdb[dbc.MGOCHATCOLL]
     return conn, wdb, coll
@@ -398,6 +398,8 @@ if __name__ == '__main__':
     # rss = rs2list(getgpbyfmidandfsave('44112781115655721', True))
     # print(rss)
     # hasdownfwddoc('4411315231832192')
-    oconn = MongoClient("139.199.13.252", username='weibo', password='Weibo@173', authSource='admin', authMechanism='SCRAM-SHA-256')
+    oconn = MongoClient("139.199.13.252", username='weibo', password='Weibo@173', authSource='weibo', authMechanism='SCRAM-SHA-1')
     owdb = oconn[dbc.MGOWDB]
     ocoll = owdb[dbc.MGOCHATCOLL]
+    results = ocoll.aggregate(
+        [{'$match': {'mday': {'$gte': '20191114'}}}, {'$group': {'_id': "$gid", 'maxmid': {'$max': "$smid"}}}])
