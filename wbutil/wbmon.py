@@ -9,6 +9,7 @@ import util.caldate as cald
 
 
 def getMongoWDb():
+    #conn = MongoClient(dbc.MGOHOST)
     conn = MongoClient(dbc.MGOHOST, username=dbc.MGOWAUU, password=dbc.MGOWAUP, authSource=dbc.MGOWDB, authMechanism='SCRAM-SHA-256')
     wdb = conn[dbc.MGOWDB]
     coll = wdb[dbc.MGOCTCOLL]
@@ -16,6 +17,7 @@ def getMongoWDb():
 
 
 def getMongoWChatDb():
+    #conn = MongoClient(dbc.MGOHOST)
     conn = MongoClient(dbc.MGOHOST, username=dbc.MGOWAUU, password=dbc.MGOWAUP, authSource=dbc.MGOWDB, authMechanism='SCRAM-SHA-256')
     wdb = conn[dbc.MGOWDB]
     coll = wdb[dbc.MGOCHATCOLL]
@@ -93,7 +95,6 @@ def hasdownmedia(mid, fid, locpath, opttext):
     conn, wdb, coll = getMongoWDb()
     try:
         if locpath == '404' or locpath == '1321' or locpath == 'timeout' or locpath.startswith('excode'):
-            # pass
             coll.update_one({'mid': mid, 'media.fid': fid}, {'$set': {'media.$.hasd': 1, 'media.$.mtype': locpath}})
         else:
             coll.update_one({'mid': mid, 'media.fid': fid}, {'$set': {'media.$.hasd': 1, 'media.$.locpath': locpath}})

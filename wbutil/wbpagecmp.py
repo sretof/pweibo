@@ -28,7 +28,8 @@ class WbPageCmp:
         self.wbcomp = wbcomp
         self.mlogger = mlogger
 
-    def __downmedia(self, mid, medias, fdir, dvp=False):
+    def __downmedia(self, mid, medias, tfdir):
+        fdir = self.wbcomp.picdir + tfdir
         if not os.path.exists(fdir):
             os.makedirs(fdir)
         exmedias = []
@@ -42,13 +43,16 @@ class WbPageCmp:
             opttext = ''
             if media['mtype'].startswith('13') or media['mtype'] == '14' or media['mtype'] == '15':
                 locpath, opttext = self.downpage(mid, purl, fid, fdir, media['mtype'])
-            elif media['mtype'].endswith('21') or media['mtype'].endswith('211'):
+            elif media['mtype'].endswith('20') or media['mtype'].endswith('21'):
                 locpath = self.downpic(mid, purl, fid, fdir)
             else:
-                locpath = self.downvideo(mid, purl, fid, fdir)
+                locpath = ''
+                # locpath = self.downvideo(mid, purl, fid, fdir)
             if locpath and locpath == 'excode414':
                 locpath = ''
             if locpath:
+                if locpath.startswith(self.wbcomp.picdir):
+                    locpath = locpath.replace(self.wbcomp.picdir, '')
                 okmedias.append({'mid': mid, 'fid': fid, 'locpath': locpath, 'opttext': opttext})
             else:
                 locpath = ''
@@ -58,8 +62,8 @@ class WbPageCmp:
         return okmedias, exmedias
 
     def downfwdmedia(self, gid, mid, uid, fmid, fcday, fmedia):
-        fdir = self.wbcomp.picdir + '/tlgid' + gid + '/fwd/tluid' + uid + '/' + fcday[0:6]
-        okmedias, exmedias = self.__downmedia(fmid, fmedia, fdir)
+        tfdir = '/' + fcday + '/tlgid' + gid + '/fwd/tluid' + uid
+        okmedias, exmedias = self.__downmedia(fmid, fmedia, tfdir)
         for okmedia in okmedias:
             wbmon.hasdownfwdmedia(mid, okmedia['fid'], okmedia['locpath'], okmedia['opttext'])
         if len(exmedias) > 0:
@@ -67,7 +71,7 @@ class WbPageCmp:
         else:
             wbmon.hasdownfwddoc(mid)
 
-    def downmedia(self, mid, doc=None, fdir=None, dvp=False):
+    def downmedia(self, mid):
         gdoccnt = 0
         while gdoccnt < 1:
             doc = wbmon.getgpbymid(mid)
@@ -88,11 +92,8 @@ class WbPageCmp:
             gid = 'others'
         if not dcday:
             dcday = cald.getdaystr()
-        if fdir is None:
-            fdir = self.wbcomp.picdir + '/tlgid' + gid + '/tluid' + uid + '/' + dcday[0:6]
-        if not os.path.exists(fdir):
-            os.makedirs(fdir)
-        okmedias, exmedias = self.__downmedia(mid, medias, fdir, dvp)
+        tfdir = '/' + dcday + '/tlgid' + gid + '/tluid' + uid
+        okmedias, exmedias = self.__downmedia(mid, medias, tfdir)
         for okmedia in okmedias:
             wbmon.hasdownmedia(mid, okmedia['fid'], okmedia['locpath'], okmedia['opttext'])
         if len(exmedias) > 0:
@@ -362,4 +363,4 @@ if __name__ == '__main__':
     owbcomp = WbComp(owbun, owbpw, mlogger=glogger)
     owbcomp.login()
     owbpagecmp = WbPageCmp(owbcomp)
-    owbpagecmp.downmedia('4410177627355609', fdir='F:\\bg')
+    owbpagecmp.downmedia('4410177627355609')

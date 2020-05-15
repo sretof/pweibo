@@ -76,6 +76,8 @@ class WbGChatCmp:
         elif cttype == '14':
             hd, fpath = self.pagecmp.fchchathtml(ct)
         if ct:
+            if fpath.startswith(self.wbcomp.picdir):
+                fpath = fpath.replace(self.wbcomp.picdir, '')
             wbmon.savechatdata(mid, mday, gid, buid, bn, cttype, ct, hd, fid, fpath, mtime)
 
     def fchatstl(self):
@@ -116,16 +118,19 @@ class WbGChatCmp:
                 mday = cald.getdaystr(mtime)
                 smid = mday + mid
                 if stasmid and smid >= stasmid:
+                    hismid = mid
+                    self.mlogger.debug('WbGChatCmp:fchattl CT1 stasmid url:{},smin:{},stasmid:{}'.format(chatapiurl, smid, stasmid))
                     continue
                 if endsmid and smid <= endsmid:
                     hismid = ''
-                    self.mlogger.debug('WbGChatCmp:fchattl END2 endsmid url:{},endsmid:{}'.format(chatapiurl, endsmid))
+                    self.mlogger.debug('WbGChatCmp:fchattl END2 endsmid url:{},smin:{},endsmid:{}'.format(chatapiurl, smid, endsmid))
                     break
                 if mday < endday:
                     hismid = ''
                     self.mlogger.debug('WbGChatCmp:fchattl END3 endday url:{},endday:{}'.format(chatapiurl, endday))
                     break
-                fdir = self.wbcomp.picdir + '/cgid' + gid + '/' + cald.getperiod(mtime)
+                sfdir = '/cgid' + gid + '/' + cald.getperiod(mtime)
+                fdir = self.wbcomp.picdir + sfdir
                 if not os.path.exists(fdir):
                     os.makedirs(fdir)
                 try:

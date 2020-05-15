@@ -12,23 +12,15 @@ from wbutil.wbcomp import WbComp
 
 class TLDetailAly:
     @staticmethod
-    def chkandudpmediamtype(gid, medias):
+    def hasvideotype(gid, medias):
         hasvideo = False
         if len(medias) > 0:
-            hasm13 = False
-            haspic = False
-            m13doc = {}
             for amd in medias:
                 amtype = amd['mtype']
-                if amtype == '13':
-                    hasm13 = True
-                    m13doc = amd
-                if amtype.endswith('21') or amtype.endswith('211'):
-                    haspic = True
                 if amtype == '22' or amtype == '23':
                     hasvideo = True
-            if hasm13 and haspic and gid not in ['3653960185837784', '3909747545351455']:
-                m13doc['mtype'] = '1321'
+                if gid == ' ':
+                    pass
         return hasvideo
 
     @staticmethod
@@ -85,7 +77,8 @@ class TLDetailAly:
             elif adom.get('action-type', '') == 'widget_photoview':
                 furl = adom.get('short_url', '')
                 if furl:
-                    file = {'url': furl, 'hasd': 0, 'mtype': '211', 'fid': fauuid}
+                    mtype = mtype + '20'
+                    file = {'url': furl, 'hasd': 0, 'mtype': '20', 'fid': fauuid}
                     files.append(file)
             elif adom.get('action-type', '') == 'feed_list_url':
                 lidom = adom.select_one('i.ficon_cd_link')
@@ -156,9 +149,14 @@ class TLDetailAly:
         if mediaul is not None:
             piclis = mediaul.select('li.WB_pic')
             if len(piclis) > 0:
+                if mtype.endswith('20'):
+                    for oldf in files:
+                        if oldf['mtype'] == '20':
+                            oldf['hasd'] = 1
+                        if oldf['mtype'] == '13':
+                            oldf['mtype'] == '1321'
+                    mtype.replace('20', '')
                 mtype = mtype + '21'
-            # for file in files:
-            #     if file.mtype == '13' and
             for picli in piclis:
                 acdtxt = picli.get('action-data', '')
                 rpic = r'pid=(\w+)|pic_id=(\w+)'

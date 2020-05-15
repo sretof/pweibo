@@ -129,19 +129,17 @@ class WbGTlCmp:
                     self.mlogger.debug('WbGTlCmp:fgrouptl:alygtlfeeds continue;gid:{},ctlist:{},url:{}'.format(gid, ctlist, gtlurl))
                 for doc in doclist:
                     try:
-                        hasvideo = TLDetailAly.chkandudpmediamtype(gid, doc['media'])
-                        if 'fwddoc' in doc and doc['fwddoc'] is not None and doc['fwddoc'] and 'media' in doc['fwddoc'] and doc['fwddoc']['media'] is not None:
-                            TLDetailAly.chkandudpmediamtype(gid, doc['fwddoc']['media'])
                         wbmon.savedoc(gid, doc)
                         docct = docct + 1
                         if len(doc['media']) > 0:
-                            if hasvideo:
-                                pass
-                                # self.vdownfexecutor.submit(self.pagecmp.downmedia, doc['mid'])
-                            else:
-                                pass
-                                self.downfexecutor.submit(self.pagecmp.downmedia, doc['mid'])
-                            # exmedias = self.wbcomp.downmedia(doc['mid'])
+                            self.downfexecutor.submit(self.pagecmp.downmedia, doc['mid'])
+                            # hasvideo = TLDetailAly.hasvideotype(gid, doc['media'])
+                            # if hasvideo:
+                            #     self.vdownfexecutor.submit(self.pagecmp.downmedia, doc['mid'])
+                            # else:
+                            #     self.downfexecutor.submit(self.pagecmp.downmedia, doc['mid'])
+                            # sync no executor
+                            # exmedias = self.pagecmp.downmedia(doc['mid'])
                             # if len(exmedias) > 0:
                             #     self.mlogger.error('WbGTlCmp:fgrouptl:downmedia EX;exmedias:{}'.format(exmedias))
                     except Exception as ex:

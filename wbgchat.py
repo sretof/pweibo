@@ -31,6 +31,7 @@ if __name__ == '__main__':
         lonhour = cald.gethour()
         try:
             chatcmp.fchatstl()
+            #chatcmp.fchattl('4305987512698522', '202003064479474823763408', '201911284443621393130638')
         except Exception as gex:
             wclogger.error('wbgchat,ex:{}'.format(str(gex)))
             raise gex
