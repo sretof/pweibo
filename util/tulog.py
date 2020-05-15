@@ -8,7 +8,7 @@ import time
 
 
 class TuLog:
-    def __init__(self, lname, lpath='/../log', sch=False, flevel=logging.ERROR, clevel=logging.DEBUG):
+    def __init__(self, lname, lpath='/log', sch=False, flevel=logging.ERROR, clevel=logging.DEBUG):
         '''
             指定保存日志的文件路径，日志级别，以及调用文件
             将日志存入到指定的文件中
@@ -21,7 +21,7 @@ class TuLog:
         if not self.logger.handlers:
             # 创建一个handler，用于写入日志文件
             self.log_time = time.strftime("%Y_%m_%d")
-            file_dir = os.getcwd() + lpath
+            file_dir = lpath
             if not os.path.exists(file_dir):
                 os.mkdir(file_dir)
             self.log_path = file_dir

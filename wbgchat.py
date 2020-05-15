@@ -22,7 +22,7 @@ def fchatslp(onhour, slogger):
 
 
 if __name__ == '__main__':
-    wclogger = logger.TuLog('wbchat', '/log', True, logging.WARNING).getlog()
+    wclogger = logger.TuLog('wbchat', '/log/pweibo', True, logging.WARNING).getlog()
     wbcomp = WbComp(dbc.WBUN, dbc.WBPW, picdir='/www/oneds/weibopicfz', mlogger=wclogger)
     #wbcomp = WbComp(dbc.WBUN, dbc.WBPW, picdir='D:\pictmp', mlogger=wclogger)
     wbcomp.login()

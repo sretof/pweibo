@@ -23,8 +23,8 @@ def fgtlslp(slogger):
 
 
 if __name__ == '__main__':
-    tllogger = logger.TuLog('wbtl', '/log', True, logging.WARNING).getlog()
-    utllogger = logger.TuLog('[wbtl]wbutl', '/log', True, logging.DEBUG).getlog()
+    tllogger = logger.TuLog('wbtl', '/log/pweibo', True, logging.WARNING).getlog()
+    utllogger = logger.TuLog('[wbtl]wbutl', '/log/pweibo', True, logging.DEBUG).getlog()
     tlwbcomp = WbComp(dbc.WBUN, dbc.WBPW, picdir='/www/oneds/weibopicfz', mlogger=tllogger)
     #tlwbcomp = WbComp(dbc.WBUN, dbc.WBPW, picdir='D:\pictmp', mlogger=wclogger)
     tlwbcomp.login()

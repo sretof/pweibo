@@ -161,7 +161,7 @@ class WbUTlCmp:
 
     def fgroupsuidsex(self):
         self.fguexecutor.submit(self.fgroupsuidsl)
-        time.sleep(10)
+        time.sleep(60*5)
 
     def getgudict(self):
         self.gudictlock.acquire()
