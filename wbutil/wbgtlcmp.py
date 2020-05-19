@@ -17,7 +17,6 @@ import wbutil.wbmon as wbmon
 from wbutil import TLFeedAly
 from wbutil import WbComp
 from wbutil import WbPageCmp
-from wbutil.tldetailaly import TLDetailAly
 
 
 class WbGTlCmp:

@@ -14,6 +14,9 @@ from bs4 import BeautifulSoup
 import conf.db as dbc
 import util.caldate as cald
 import util.tulog as logger
+import wbutil.wbmon as wbmon
+from wbutil import TLFeedAly
+from wbutil import TLDetailAly
 from wbutil import WbComp
 from wbutil import WbPageCmp
 
@@ -27,6 +30,7 @@ class WbUTlCmp:
         self.fguexecutor = ThreadPoolExecutor(max_workers=1)
         self.gudictlock = threading.Lock()
         self.gudict = {}
+        self.uidunamedict = {}
         if pagecmp is None:
             pagecmp = WbPageCmp(wbcomp, mlogger)
         self.pagecmp = pagecmp
@@ -131,6 +135,7 @@ class WbUTlCmp:
                     continue
                 else:
                     self.gudict[mumap['uid']] = gid
+                    self.uidunamedict[mumap['uid']] = mumap.get('screen_name', '')
             npa = soup.select_one('div.WB_cardpage > div.W_pages a.page.next')
             if npa is not None and npa.get('href', ''):
                 href = WbComp.fillwbhref(npa['href'])
@@ -142,6 +147,7 @@ class WbUTlCmp:
         self.gudictlock.acquire()
         try:
             self.gudict = {}
+            self.uidunamedict = {}
             for gid in dbc.TLGIDS:
                 self.mlogger.debug('WbUTlCmp:fgroupsuids START=====>gid:{}'.format(gid))
                 try:
@@ -149,6 +155,18 @@ class WbUTlCmp:
                     self.mlogger.debug('WbUTlCmp:fgroupsuids END=====>gid:{}'.format(gid))
                 except Exception as guex:
                     self.mlogger.error('WbUTlCmp:fgroupsuids EX=====>gid:{},ex:{}'.format(gid, str(guex)))
+            pusers = wbmon.getflwusers()
+            pusersdict = {}
+            for puser in pusers:
+                pusersdict[puser['uid']] = puser
+            for uid in self.gudict:
+                if uid in pusersdict:
+                    wbmon.updateflwuser({'uid': uid, 'gid': self.gudict[uid], 'uname': self.uidunamedict[uid]})
+                    del pusersdict[uid]
+                else:
+                    wbmon.updateflwuser({'uid': uid, 'gid': self.gudict[uid], 'uname': self.uidunamedict[uid]})
+            for puser in pusersdict:
+                wbmon.updateflwuser({'uid': puser}, 1)
         finally:
             self.gudictlock.release()
         self.mlogger.debug('WbUTlCmp:fgroupsuids END=====>gudict:{}'.format(self.gudict))
@@ -161,6 +179,7 @@ class WbUTlCmp:
 
     def fgroupsuidsex(self):
         self.fguexecutor.submit(self.fgroupsuidsl)
+        #self.fgroupsuidsl()
         time.sleep(60*5)
 
     def getgudict(self):

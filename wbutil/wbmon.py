@@ -15,6 +15,14 @@ def getMongoWDb():
     coll = wdb[dbc.MGOCTCOLL]
     return conn, wdb, coll
 
+def getMongoWUDb():
+    #conn = MongoClient(dbc.MGOHOST)
+    conn = MongoClient(dbc.MGOHOST, username=dbc.MGOWAUU, password=dbc.MGOWAUP, authSource=dbc.MGOWDB, authMechanism='SCRAM-SHA-256')
+    wdb = conn[dbc.MGOWDB]
+    coll = wdb[dbc.MGOUCOLL]
+    colllog = wdb[dbc.MGOULCOLL]
+    return conn, wdb, coll, colllog
+
 
 def getMongoWChatDb():
     #conn = MongoClient(dbc.MGOHOST)
@@ -184,10 +192,8 @@ def hasdownfwddoc(mid):
 ################
 # UTL
 ################
-def getutlhect():
-    conn = MongoClient(dbc.MGOHOST, 27017)
-    wdb = conn[dbc.MGOWDB]
-    coll = wdb[dbc.MGOUTLHCOLL]
+def getflwusers():
+    conn, wdb, coll, colllog = getMongoWUDb()
     try:
         result = coll.find()
         return result
@@ -196,6 +202,37 @@ def getutlhect():
     finally:
         conn.close()
 
+def updateflwuser(nuser, isdel=0):
+    conn, wdb, coll, colllog = getMongoWUDb()
+    try:
+        puser = None
+        ctype = ''
+        if 'uid' in nuser:
+            puser = coll.find_one({'uid': nuser['uid']})
+        if not isdel:
+            if puser is None:
+                nuser['needfh'] = 0
+                nuser['hasfh'] = 0
+                coll.insert_one(nuser)
+            elif nuser['uname'] != puser['uname'] or nuser['gid'] != puser['gid']:
+                coll.update_one({'uid': nuser['uid']}, {'$set': {'uname': nuser['uname'], 'gid': nuser['gid']}})
+                if nuser['uname'] != puser['uname']:
+                    ctype = 'chguname'
+                elif nuser['gid'] != puser['gid']:
+                    ctype = 'chggid'
+        else:
+            coll.delete_one({'uid': nuser['uid']})
+            ctype = 'del'
+        if ctype and puser is not None and '_id' in puser:
+            del puser['_id']
+            puser['ctype'] = ctype
+            puser['cday'] = cald.getdaystr()
+            puser['ctime'] = cald.now()
+            colllog.insert(puser)
+    except Exception as mex:
+        raise mex
+    finally:
+        conn.close()
 
 def getmtlmindoc(uid, conn=None, coll=None):
     nclose = False

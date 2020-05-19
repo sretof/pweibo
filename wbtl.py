@@ -7,7 +7,6 @@ import time
 import conf.db as dbc
 import util.tulog as logger
 from wbutil import WbComp
-from wbutil import WbFwdCmp
 from wbutil import WbGTlCmp
 from wbutil import WbPageCmp
 from wbutil import WbUTlCmp
