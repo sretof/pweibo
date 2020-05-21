@@ -156,6 +156,7 @@ class WbUTlCmp:
                     self.mlogger.debug('WbUTlCmp:fgroupsuids END=====>gid:{}'.format(gid))
                 except Exception as guex:
                     needupdate = False
+                    self.wbcomp.refresh(self.wbcomp.wbuuid, 60, True)
                     self.mlogger.error('WbUTlCmp:fgroupsuids EX=====>gid:{},ex:{}'.format(gid, str(guex)))
             pusers = wbmon.getflwusers()
             pusersdict = {}
