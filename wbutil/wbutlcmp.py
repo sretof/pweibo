@@ -145,6 +145,7 @@ class WbUTlCmp:
     def fgroupsuids(self):
         self.mlogger.debug('WbUTlCmp:fgroupsuids START')
         self.gudictlock.acquire()
+        needupdate = True
         try:
             self.gudict = {}
             self.uidunamedict = {}
@@ -154,6 +155,7 @@ class WbUTlCmp:
                     self.__fgroupuids(gid)
                     self.mlogger.debug('WbUTlCmp:fgroupsuids END=====>gid:{}'.format(gid))
                 except Exception as guex:
+                    needupdate = False
                     self.mlogger.error('WbUTlCmp:fgroupsuids EX=====>gid:{},ex:{}'.format(gid, str(guex)))
             pusers = wbmon.getflwusers()
             pusersdict = {}
@@ -165,8 +167,9 @@ class WbUTlCmp:
                     del pusersdict[uid]
                 else:
                     wbmon.updateflwuser({'uid': uid, 'gid': self.gudict[uid], 'uname': self.uidunamedict[uid]})
-            for puser in pusersdict:
-                wbmon.updateflwuser({'uid': puser}, 1)
+            if needupdate:
+                for puser in pusersdict:
+                    wbmon.updateflwuser({'uid': puser}, 1)
         finally:
             self.gudictlock.release()
         self.mlogger.debug('WbUTlCmp:fgroupsuids END=====>gudict:{}'.format(self.gudict))
