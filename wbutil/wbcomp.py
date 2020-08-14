@@ -10,6 +10,8 @@ import time
 import uuid
 from binascii import b2a_hex
 from urllib.parse import quote
+from urllib.parse import unquote
+import json
 
 import requests
 import rsa
@@ -99,10 +101,33 @@ class WbComp:
         }
         response = self.session.post(url, data=data, allow_redirects=False)  # 提交账号密码等参数
         response.encoding = 'utf-8'
-        # print(response.text)
         redirect_url = re.findall(r'location.replace\("(.*?)"\);', response.text)[0]  # 微博在提交数据后会跳转，此处获取跳转的url
-        result = self.session.get(redirect_url, timeout=(30, 60), allow_redirects=False).text  # 请求跳转页面
-        ticket, ssosavestate = re.findall(r'ticket=(.*?)&ssosavestate=(.*?)"', result)[0]  # 获取ticket和ssosavestate参数
+        retcode = re.findall(r'retcode=(.*?)&', redirect_url)[0]
+        token = re.findall(r'token%3D(.*?)&', redirect_url+"&")[0]
+        if retcode != '0':
+            sendcodeurl = 'https://passport.weibo.com/protection/privatemsg/send'
+            getstatusurl = 'https://passport.weibo.com/protection/privatemsg/getstatus'
+            codedate = {'token': token}
+            self.session.post(sendcodeurl, codedate, timeout=(30, 60), allow_redirects=False).text
+            status_code = 1
+            count = 0
+            rlurl = ''
+            while count < 120 and status_code != '2' and rlurl == '':
+                getstatusresult = self.session.post(getstatusurl, codedate, timeout=(30, 60), allow_redirects=False).text
+                tjson = json.loads(getstatusresult)
+                status_code = tjson['data']['status_code']
+                if status_code == '2':
+                    rlurl = tjson['data']['redirect_url']
+                    rtext = self.session.get(rlurl, timeout=(30, 60)).text
+                    tlurl = re.findall(r'location.replace\("(.*?)"\);', rtext)[0]
+                    tlurl = unquote(tlurl, 'gb2312')
+                    ticket = re.findall(r'ticket=(.*?)&', tlurl)[0]
+                    ssosavestate = re.findall(r'ssosavestate=(.*?)&', tlurl)[0]
+                    break
+                time.sleep(10)
+        else:
+            result = self.session.get(redirect_url, timeout=(30, 60), allow_redirects=False).text  # 请求跳转页面
+            ticket, ssosavestate = re.findall(r'ticket=(.*?)&ssosavestate=(.*?)"', result)[0]  # 获取ticket和ssosavestate参数
         uid_url = 'https://passport.weibo.com/wbsso/login?ticket={}&ssosavestate={}&callback=sinaSSOController.doCrossDomainCallBack&scriptId=ssoscript0&client=ssologin.js(v1.4.19)&_={}'.format(
             ticket, ssosavestate, cald.gettimestamp())
         data = self.session.get(uid_url, timeout=(30, 60)).text  # 请求获取uid
