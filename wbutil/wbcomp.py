@@ -102,9 +102,10 @@ class WbComp:
         response = self.session.post(url, data=data, allow_redirects=False)  # 提交账号密码等参数
         response.encoding = 'utf-8'
         redirect_url = re.findall(r'location.replace\("(.*?)"\);', response.text)[0]  # 微博在提交数据后会跳转，此处获取跳转的url
-        retcode = re.findall(r'retcode=(.*?)&', redirect_url)[0]
-        token = re.findall(r'token%3D(.*?)&', redirect_url+"&")[0]
+        rg_redirect_url = unquote(redirect_url, 'gb2312') + "&"
+        retcode = re.findall(r'retcode=(.*?)&', rg_redirect_url)[0]
         if retcode != '0':
+            token = re.findall(r'token=(.*?)&', rg_redirect_url)[0]
             sendcodeurl = 'https://passport.weibo.com/protection/privatemsg/send'
             getstatusurl = 'https://passport.weibo.com/protection/privatemsg/getstatus'
             codedate = {'token': token}
