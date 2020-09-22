@@ -149,7 +149,8 @@ class WbUTlCmp:
         try:
             self.gudict = {}
             self.uidunamedict = {}
-            for gid in dbc.TLGIDS:
+            tlgids = wbmon.getflwgroups()
+            for gid in tlgids:
                 self.mlogger.debug('WbUTlCmp:fgroupsuids START=====>gid:{}'.format(gid))
                 try:
                     self.__fgroupuids(gid)
@@ -198,14 +199,16 @@ class WbUTlCmp:
 
 
 if __name__ == '__main__':
-    glogger = logger.TuLog('wbutlcmptest', '/log', True, logging.DEBUG).getlog()
-    wglogger = logger.TuLog('wbutlwbcomptest', '/log', True, logging.DEBUG).getlog()
-    wbun = 'sretof@live.cn'
-    wbpw = '1122aaa'
-    owbcomp = WbComp(wbun, wbpw, wglogger)
-    owbcomp.login()
-    outlcmp = WbUTlCmp(owbcomp, glogger)
-    outlcmp.fgroupsuidsex()
-    time.sleep(1)
-    print(len(outlcmp.getgudict()))
+    tlgids = wbmon.getflwgroups()
+    print(tlgids)
+    # glogger = logger.TuLog('wbutlcmptest', '/log', True, logging.DEBUG).getlog()
+    # wglogger = logger.TuLog('wbutlwbcomptest', '/log', True, logging.DEBUG).getlog()
+    # wbun = 'sretof@live.cn'
+    # wbpw = '1122aaa'
+    # owbcomp = WbComp(wbun, wbpw, wglogger)
+    # owbcomp.login()
+    # outlcmp = WbUTlCmp(owbcomp, glogger)
+    # outlcmp.fgroupsuidsex()
+    # time.sleep(1)
+    # print(len(outlcmp.getgudict()))
     # gtlcmp.fgrouptl('3951063348253369', endsmid='201908154405578203590498')

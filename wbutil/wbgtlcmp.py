@@ -70,7 +70,8 @@ class WbGTlCmp:
     def fgroupstl(self):
         gtlmaxmid = wbmon.getgtlmaxmid()
         self.mlogger.info('WbGTlCmp:fgroupstl START=====>gtlmaxmid:{}'.format(gtlmaxmid))
-        for gid in dbc.TLGIDS:
+        tlgids = wbmon.getflwgroups()
+        for gid in tlgids:
             self.mlogger.info('WbGTlCmp:fgroupstl fgroupstl START=====>gid:{}'.format(gid))
             try:
                 docct = self.fgrouptl(gid, endsmid=gtlmaxmid.get(gid, ''))

@@ -23,6 +23,13 @@ def getMongoWUDb():
     colllog = wdb[dbc.MGOULCOLL]
     return conn, wdb, coll, colllog
 
+def getMongoWGDb():
+    #conn = MongoClient(dbc.MGOHOST)
+    conn = MongoClient(dbc.MGOHOST, username=dbc.MGOWAUU, password=dbc.MGOWAUP, authSource=dbc.MGOWDB, authMechanism='SCRAM-SHA-256')
+    wdb = conn[dbc.MGOWDB]
+    coll = wdb[dbc.MGOGCOLL]
+    return conn, wdb, coll
+
 
 def getMongoWChatDb():
     #conn = MongoClient(dbc.MGOHOST)
@@ -38,6 +45,23 @@ def rs2list(rsdocs):
         rsl.append(rsdoc)
     return rsl
 
+def getflwgroups(onlygids = True):
+    conn, wdb, coll = getMongoWGDb()
+    wdb = conn[dbc.MGOWDB]
+    coll = wdb[dbc.MGOGCOLL]
+    try:
+        result = coll.find({'enable': 1}).sort('sort', 1)
+        if onlygids:
+            list = []
+            for gd in result:
+                list.append(gd['gid'])
+            return list
+        else:
+            return result
+    except Exception as mex:
+        raise mex
+    finally:
+        conn.close()
 
 def getgtlmaxmid():
     conn, wdb, coll = getMongoWDb()
