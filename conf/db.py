@@ -23,7 +23,8 @@ MGOWAUU = 'weibo'
 MGOWAUP = 'Weibo@173'
 
 # WBCONF
-WBUN = 'sretof@live.cn'
+#WBUN = 'sretof@live.cn'
+WBUN = 'c3JldG9mJTQwbGl2ZS5jbg=='
 WBPW = '879211Qas'
 ADURL = ('tui.weibo',)
 #tb：3653960185837784

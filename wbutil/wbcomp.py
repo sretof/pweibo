@@ -54,12 +54,26 @@ class WbComp:
         self.session.verify = False  # 取消证书验证
 
     def __prelogin(self):
+        self.session.get('https://weibo.com/')
         '''预登录，获取一些必须的参数'''
-        self.su = base64.b64encode(self.username.encode())  # 阅读js得知用户名进行base64转码
+        # self.su = base64.b64encode(self.username.encode())  # 阅读js得知用户名进行base64转码
+        self.su = self.username
+        # print(quote(self.su)) c3JldG9mQGxpdmUuY24%3D  c3JldG9mJTQwbGl2ZS5jbg=
         url = 'https://login.sina.com.cn/sso/prelogin.php?entry=weibo&callback=sinaSSOController.preloginCallBack&su={}&rsakt=mod&checkpin=1&client=ssologin.js(v1.4.19)&_={}'.format(
             quote(self.su), cald.gettimestamp())  # 注意su要进行quote转码
-        response = self.session.get(url, timeout=(30, 60)).content.decode()
-        # print(response)
+        headers = {
+            'Accept': '* / *',
+            'Accept-Encoding': 'gzip,deflate,br',
+            'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8,zh-TW;q=0.7',
+            'Connection': 'keep-alive',
+            'Host': 'login.sina.com.cn',
+            'Referer': 'https://weibo.com/',
+            'Sec-Fetch-Dest': 'script',
+            'Sec-Fetch-Mode': 'no-cors',
+            'Sec-Fetch-Site': 'cross-site',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/85.0.4183.102 Safari/537.36'
+        }
+        response = self.session.get(url, headers=headers, timeout=(30, 60)).content.decode()
         self.nonce = re.findall(r'"nonce":"(.*?)"', response)[0]
         self.pubkey = re.findall(r'"pubkey":"(.*?)"', response)[0]
         self.rsakv = re.findall(r'"rsakv":"(.*?)"', response)[0]
