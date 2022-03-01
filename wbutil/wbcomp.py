@@ -19,6 +19,7 @@ import urllib3
 
 import util.caldate as cald
 import util.tulog as logger
+import wbutil.wbmon as wbmon
 from wbutil.wbex import WbCompError
 
 urllib3.disable_warnings()  # 取消警告
@@ -45,7 +46,8 @@ class WbComp:
         self.wbuuid = ''
         self.session = requests.session()  # 登录用session
         self.session.headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3770.100 Safari/537.36'
+            # 'Referer': "https://weibo.com/",
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.102 Safari/537.36'
         }
         if self.proxies:
             self.session.proxies = self.proxies
@@ -54,13 +56,14 @@ class WbComp:
         self.session.verify = False  # 取消证书验证
 
     def __prelogin(self):
-        self.session.get('https://weibo.com/')
+        self.session.get('https://weibo.com/login.php')
         '''预登录，获取一些必须的参数'''
         # self.su = base64.b64encode(self.username.encode())  # 阅读js得知用户名进行base64转码
         self.su = self.username
         # print(quote(self.su)) c3JldG9mQGxpdmUuY24%3D  c3JldG9mJTQwbGl2ZS5jbg=
         url = 'https://login.sina.com.cn/sso/prelogin.php?entry=weibo&callback=sinaSSOController.preloginCallBack&su={}&rsakt=mod&checkpin=1&client=ssologin.js(v1.4.19)&_={}'.format(
             quote(self.su), cald.gettimestamp())  # 注意su要进行quote转码
+
         headers = {
             'Accept': '* / *',
             'Accept-Encoding': 'gzip,deflate,br',
@@ -68,16 +71,21 @@ class WbComp:
             'Connection': 'keep-alive',
             'Host': 'login.sina.com.cn',
             'Referer': 'https://weibo.com/',
+            'sec-ch-ua': '" Not A;Brand";v="99", "Chromium";v="98", "Google Chrome";v="98"',
+            'sec-ch-ua-mobile': '?0',
+            'sec-ch-ua-platform': '"Windows"',
             'Sec-Fetch-Dest': 'script',
             'Sec-Fetch-Mode': 'no-cors',
             'Sec-Fetch-Site': 'cross-site',
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/85.0.4183.102 Safari/537.36'
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.102 Safari/537.36'
         }
         response = self.session.get(url, headers=headers, timeout=(30, 60)).content.decode()
         self.nonce = re.findall(r'"nonce":"(.*?)"', response)[0]
         self.pubkey = re.findall(r'"pubkey":"(.*?)"', response)[0]
         self.rsakv = re.findall(r'"rsakv":"(.*?)"', response)[0]
         self.servertime = re.findall(r'"servertime":(.*?),', response)[0]
+        self.pcid = re.findall(r'"pcid":"(.*?)"', response)[0]
+        # print(self.pcid)
         return self.nonce, self.pubkey, self.rsakv, self.servertime
 
     def __get_sp(self):
@@ -86,6 +94,79 @@ class WbComp:
         message = str(self.servertime) + '\t' + str(self.nonce) + '\n' + str(self.password)
         self.sp = rsa.encrypt(message.encode(), publickey)
         return b2a_hex(self.sp)
+
+    def __qrlogin(self):
+        qrstimestamp = int(time.time() * 1000)
+        qrloginurl = 'https://login.sina.com.cn/sso/qrcode/image?entry=sinawap&size=180&callback=STK_{}'.format(qrstimestamp) + '1'
+        headers = {
+            'Accept': '*/*',
+            'Accept-Encoding': 'gzip,deflate,br',
+            'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8,zh-TW;q=0.7',
+            'Connection': 'keep-alive',
+            'Host': 'login.sina.com.cn',
+            'Referer': 'https://weibo.com/',
+            'sec-ch-ua': '" Not A;Brand";v="99", "Chromium";v="98", "Google Chrome";v="98"',
+            'sec-ch-ua-mobile': '?0',
+            'sec-ch-ua-platform': '"Windows"',
+            'Sec-Fetch-Dest': 'script',
+            'Sec-Fetch-Mode': 'no-cors',
+            'Sec-Fetch-Site': 'cross-site',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.102 Safari/537.36'
+        }
+        html = self.session.get(qrloginurl, headers=headers, timeout=(30, 60))
+        html.encoding = 'utf-8'
+        text = html.text
+        html.close()
+        qrparamsg = re.search("window.STK_\d+.\d+ && STK_\d+.\d+\(?", text)
+        qrparams = json.loads(text.strip().lstrip(qrparamsg.group()).rstrip(");"))
+        qrid = qrparams['data']['qrid']
+        qrimage = qrparams['data']['image']
+        print(qrimage)
+        wbmon.saveMongoQyImg(qrid, qrimage, '00000000')
+        getqrstatusurl = 'https://login.sina.com.cn/sso/qrcode/check?entry=weibo&qrid={}&callback=STK_{}'
+        time.sleep(1)
+        qrctimestamp = int(time.time() * 1000)
+        gapts = int((qrctimestamp-qrstimestamp)/1000)*2+1
+        while gapts < 120:
+            getqrstatusurlf = getqrstatusurl.format(qrid, qrstimestamp) + str(gapts)
+            html = self.session.get(getqrstatusurlf, headers=headers, timeout=(30, 60))
+            html.encoding = 'utf-8'
+            text = html.text
+            html.close()
+            rcodeg = re.search("window.STK_\d+.\d+ && STK_\d+.\d+\(?", text)
+            rcodej = json.loads(text.strip().lstrip(rcodeg.group()).rstrip(");"))
+            rcode = str(rcodej['retcode'])
+            wbmon.saveMongoQyImg(qrid, qrimage, rcode, gapts)
+            if '20000000' in rcode:
+                alt = rcodej['data']['alt']
+                alturl = 'https://login.sina.com.cn/sso/login.php?entry=weibo&returntype=TEXT&crossdomain=1&cdult=3&domain=weibo.com&alt={}&savestate=30&callback=STK_{}'
+                alturlf = alturl.format(alt, qrstimestamp) + str(gapts + 2)
+                html = self.session.get(alturlf, headers=headers, timeout=(30, 60))
+                html.encoding = 'utf-8'
+                text = html.text
+                html.close()
+                # print('===============5===========')
+                # print(text)
+                crurlg = re.search("STK_\d+\(?", text)
+                crurlj = json.loads(text.strip().lstrip(crurlg.group()).rstrip(");"))
+                crurll = crurlj['crossDomainUrlList']
+                # print(crurll)
+                uid = crurlj['uid']
+                # print(uid)
+                self.session.get(crurll[0], timeout=(30, 60))
+                self.session.get(crurll[1] + '&action=login', timeout=(30, 60))
+                self.session.get(crurll[2], timeout=(30, 60))
+                self.wbuid = uid
+                self.wbuuid = str(uuid.uuid1()).replace('-', '')
+                break
+            else:
+                #其他情况
+                #二维码未失效，请扫码！'50114001'
+                #已扫码，请确认！'50114002'
+                #二维码已失效，请重新运行！'50114004'
+                print(rcode)
+            time.sleep(4)
+            gapts = gapts + 2
 
     def __login(self):
         self.__prelogin()
@@ -118,7 +199,7 @@ class WbComp:
         redirect_url = re.findall(r'location.replace\("(.*?)"\);', response.text)[0]  # 微博在提交数据后会跳转，此处获取跳转的url
         rg_redirect_url = unquote(redirect_url, 'gb2312') + "&"
         retcode = re.findall(r'retcode=(.*?)&', rg_redirect_url)[0]
-        if retcode != '0':
+        if retcode == '2071':
             token = re.findall(r'token=(.*?)&', rg_redirect_url)[0]
             sendcodeurl = 'https://passport.weibo.com/protection/privatemsg/send'
             getstatusurl = 'https://passport.weibo.com/protection/privatemsg/getstatus'
@@ -140,13 +221,23 @@ class WbComp:
                     ssosavestate = re.findall(r'ssosavestate=(.*?)&', tlurl)[0]
                     break
                 time.sleep(10)
-        else:
+        elif retcode == '0':
             result = self.session.get(redirect_url, timeout=(30, 60), allow_redirects=False).text  # 请求跳转页面
             ticket, ssosavestate = re.findall(r'ticket=(.*?)&ssosavestate=(.*?)"', result)[0]  # 获取ticket和ssosavestate参数
-        uid_url = 'https://passport.weibo.com/wbsso/login?ticket={}&ssosavestate={}&callback=sinaSSOController.doCrossDomainCallBack&scriptId=ssoscript0&client=ssologin.js(v1.4.19)&_={}'.format(
-            ticket, ssosavestate, cald.gettimestamp())
-        data = self.session.get(uid_url, timeout=(30, 60)).text  # 请求获取uid
-        uid = re.findall(r'"uniqueid":"(.*?)"', data)[0]
+        else:
+            raise Exception('login error:'+rg_redirect_url)
+        if ticket and ssosavestate:
+            # uid_url = 'https://passport.weibo.com/wbsso/login?ticket={}&ssosavestate={}&callback=sinaSSOController.doCrossDomainCallBack&scriptId=ssoscript0&client=ssologin.js(v1.4.19)&_={}'.format(
+            #     ticket, ssosavestate, cald.gettimestamp())
+            uid_url = 'https://passport.weibo.com/wbsso/login?ticket={}&ssosavestate={}&action=login'.format(ticket, ssosavestate)
+            print(uid_url)
+            html = self.session.get(uid_url, timeout=(30, 60))  # 请求获取uid
+            html.encoding = 'utf-8'
+            data = html.text
+            print(data)
+            uid = re.findall(r'"uniqueid":"(.*?)"', data)[0]
+        else:
+            raise Exception('login error:ticket & ssosavestate is none')
         if uid:
             self.wbuid = uid
             self.wbuuid = str(uuid.uuid1()).replace('-', '')
@@ -232,7 +323,7 @@ class WbComp:
         while tyrcnt < 3:
             tyrcnt = tyrcnt + 1
             try:
-                self.__login()
+                self.__qrlogin()
                 if self.wbuid:
                     success = True
                     self.mlogger.info('WbComp login success=====>wbuid:{},wbuuid:{}'.format(self.wbuid, self.wbuuid))
@@ -241,7 +332,7 @@ class WbComp:
                     raise Exception('no pwuid')
             except Exception as lex:
                 rex = lex
-                time.sleep(3)
+                time.sleep(60)
         self.wblock.release()
         if not success:
             raise rex
@@ -316,11 +407,13 @@ class WbComp:
 
 if __name__ == '__main__':
     glogger = logger.TuLog('wbcomptest', '/../log', True, logging.DEBUG).getlog()
-    wbun = 'sretof@live.cn'
-    wbpw = '1122aaa'
+    wbun = 'c3JldG9mJTQwbGl2ZS5jbg=='
+    wbpw = '879211Qas'
     wbcomp = WbComp(wbun, wbpw, mlogger=glogger)
-    # wbcomp.login()
-    # wbcomp.gethtml('https://weibo.com/5705221157/HwfbzDytxcc', refresh=True)
+    wbcomp.login()
+    rcode, text = wbcomp.gethtml('https://weibo.com/5705221157/HwfbzDytxcc', refresh=True)
+    print(rcode)
+    print(text)
 
     # ulocpath, utxt = wbcomp.downpage('1', 'https://weibo.com/1886824091/I3raPz6hL', '11', 'F:\\bg', mtype='1321')
     # print(ulocpath, utxt)
@@ -329,6 +422,6 @@ if __name__ == '__main__':
     # print(ulocpath, utxt)
 
     # wbcomp.downmedia('4408119490344814', fdir='F:\\bg\\4408119490344814')
-    tacd = 'uid=3275508441&profile_image_url=http://tva2.sinaimg.cn/crop.0.0.720.720.50/c33c4ad9jw8ek1hvopr8ej20k00k0ju0.jpg?Expires=1566553334&ssig=JEwmIKyLB8&KID=imgbed,tva&gid=3909747545351455&gname=股票&screen_name=跟我走吧14&sex=m'
-    tmumap = WbComp.splitacd(tacd, 'uid', 'screen_name')
-    print(tmumap)
+    # tacd = 'uid=3275508441&profile_image_url=http://tva2.sinaimg.cn/crop.0.0.720.720.50/c33c4ad9jw8ek1hvopr8ej20k00k0ju0.jpg?Expires=1566553334&ssig=JEwmIKyLB8&KID=imgbed,tva&gid=3909747545351455&gname=股票&screen_name=跟我走吧14&sex=m'
+    # tmumap = WbComp.splitacd(tacd, 'uid', 'screen_name')
+    # print(tmumap)

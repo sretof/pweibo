@@ -82,6 +82,7 @@ def gethour(day=None):
 
 def test():
     print(getdaystr(preday()))
+    print(now())
     # print('01===>', int('01') == 1)
     # print('02===>', int(today().strftime('%Y%m%d')[6:8]) == 1, int(today().strftime('%Y%m%d')[6:8]))
     # print('1===>', calmonths(), calmonthe())

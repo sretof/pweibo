@@ -105,6 +105,7 @@ class WbGChatCmp:
             msgsjson = json.loads(jtext)
             msgs = msgsjson.get('messages', [])
             retcode = str(msgsjson.get('error_code', 0))
+            raise WbChatGetDocError(retcode)
             if retcode == '21301':
                 raise WbChatGetDocError(retcode)
             if len(msgs) == 0:

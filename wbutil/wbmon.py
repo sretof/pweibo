@@ -38,6 +38,22 @@ def getMongoWChatDb():
     coll = wdb[dbc.MGOCHATCOLL]
     return conn, wdb, coll
 
+def saveMongoQyImg(qyid, qyimg, rcode, gapts='1'):
+    conn = MongoClient(dbc.MGOHOST, username=dbc.MGOWAUU, password=dbc.MGOWAUP, authSource=dbc.MGOWDB, authMechanism='SCRAM-SHA-256')
+    wdb = conn[dbc.MGOWDB]
+    try:
+        coll = wdb['LoginQyid']
+        result = coll.find_one({'qyid': qyid})
+        if result is None:
+            ct = cald.now()
+            doc = {'qyid': qyid, 'qyimg': qyimg, 'rcode': rcode, 'gapts': gapts, 'cttime': ct, 'lttime': ct}
+            coll.insert_one(doc)
+        else:
+            coll.update_one({'qyid': qyid}, {'$set': {'rcode': rcode, 'gapts': gapts, 'lttime': cald.now()}})
+    except Exception as mex:
+        raise mex
+    finally:
+        conn.close()
 
 def rs2list(rsdocs):
     rsl = []
